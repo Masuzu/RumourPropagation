@@ -51,35 +51,50 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 		int nodeID = queue.front();
 		std::cout << "Parsing node " << nodeID << std::endl;
 
-		auto it = pGraph->GetNI(nodeID);	
-		int numChildren = it.GetOutDeg();
+		auto parent = pGraph->GetNI(nodeID);	
+		int numChildren = parent.GetOutDeg();
+		// Update the belief of the children of parent
 		for(int i = 0; i < numChildren; ++i)
-			queue.push(it.GetOutNId(i));
-
-		// Get the parents of the child
-		int numParents = it.GetInDeg();
-		for(int i = 0; i < numParents; ++i)
 		{
-			it.GetInNDat(i);
+			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+			pGraph->SetNDat(parent.GetOutNId(i),
+				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val)*parent.GetDat().Val);
+			queue.push(parent.GetOutNId(i));
 		}
+
 		queue.pop();
 	}
 }
 
-#define _SAVE_TO_FILE
+#define _TEST_GRAPH
 int main(int argc, char* argv[])
 {
+#ifdef _TEST_GRAPH
+	auto pGraph = TNodeEDatNet<TFlt, TFlt>::New();
+	pGraph->AddNode(0);
+	pGraph->SetNDat(0, 1);
+	pGraph->AddNode(1);
+	pGraph->SetNDat(1, 0);
+	pGraph->AddNode(2);
+	pGraph->SetNDat(2, 0);
+	pGraph->AddEdge(0,1);
+	pGraph->SetEDat(0,1, 0.5);
+	pGraph->AddEdge(0,2);
+	pGraph->SetEDat(0,2, 0.5);
+	pGraph->AddEdge(1,2);
+	pGraph->SetEDat(1,2, 0.5);
+	PropagateFromNode(pGraph, 0);
+	std:: cout << pGraph->GetNDat(0).Val << " " << pGraph->GetNDat(1).Val << " " << pGraph->GetNDat(2).Val << std::endl;
+#endif
 #ifdef _LOAD_FROM_FILE
-	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("test.txt", 0, 1);
+	TFIn FIn("test.graph");
+	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
 	PropagateFromNode(pGraph, 0);
 #endif
 #ifdef _SAVE_TO_FILE
 	auto pGraph = GenerateRandomBayesianNetwork(1, 5, 3, 5, 30);
-	/*<
 	TFOut FOut("test.graph");
 	pGraph->Save(FOut);
-	*/
-	TSnap::SaveEdgeList(pGraph, "test.txt", "Save as tab-separated list of edges");
 	TSnap::SaveGViz(pGraph, "test.gv", "Test DAG", "20");
 #endif
 
