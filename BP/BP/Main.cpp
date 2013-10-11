@@ -1,6 +1,7 @@
-#include "Snap.h"
 #include <queue>
 #include <iostream>
+#include <boost/thread/thread.hpp>
+#include "Snap.h"
 
 //! @param minNumNodesPerRank How 'fat' the DAG should be.
 //! @param minRanks How 'tall' the DAG should be.
@@ -49,7 +50,7 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 	while(!queue.empty())
 	{
 		int nodeID = queue.front();
-		std::cout << "Parsing node " << nodeID << std::endl;
+		// std::cout << "Parsing node " << nodeID << std::endl;
 
 		auto parent = pGraph->GetNI(nodeID);	
 		int numChildren = parent.GetOutDeg();
