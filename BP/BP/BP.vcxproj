@@ -53,13 +53,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\debug\link-static\threading-multi;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(SolutionDir)/TBB/include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\debug\link-static\threading-multi;$(SolutionDir)/TBB/lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\release\link-static\threading-multi;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\release\link-static\threading-multi;$(SolutionDir)/TBB/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(SolutionDir)/TBB/include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
