@@ -1,5 +1,5 @@
 #include "Utilities.h"
-#include "Snap.h"
+#include <Snap.h>
 
 #ifdef WIN32
 

@@ -11,11 +11,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BP.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="snap-core\Snap.cpp" />
     <ClCompile Include="Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BP.h" />
     <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
