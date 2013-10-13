@@ -30,20 +30,6 @@
 
 using namespace std;
 
-class WorkerThread
-{
-protected:
-	const int m_iThreadID;
-
-public:
-	WorkerThread(int id) : m_iThreadID(id)	{ }
-
-	void operator()()
-	{
-
-	}
-};
-
 // http://snap.stanford.edu/snap/quick.html
 #ifdef _DEBUG
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID, bool bDisplayInfo = false)
@@ -77,7 +63,7 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
 			pGraph->SetNDat(iChildID,
 				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
-
+		
 			if(visitedNodes.count(iChildID) == 0)
 			{
 				visitedNodes[iChildID] = true;	// Mark the child
@@ -106,24 +92,24 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 		if(numChildren > 50)
 			tbb::parallel_for(tbb::blocked_range<int>(0,numChildren, 50), 
 			[&](const tbb::blocked_range<int>& r)
+		{
+			for (int i=r.begin();i!=r.end();++i)
 			{
-				for (int i=r.begin();i!=r.end();++i)
-				{
-					int iChildID = parent.GetOutNId(i);
-					// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
-					pGraph->SetNDat(iChildID,
-						1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
+				int iChildID = parent.GetOutNId(i);
+				// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+				pGraph->SetNDat(iChildID,
+					1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
 
-					if(visitedNodes.count(iChildID) == 0)
-					{
-						visitedNodes[iChildID] = true;	// Mark the child
-						queue.push(iChildID);
-					}
+				if(visitedNodes.count(iChildID) == 0)
+				{
+					visitedNodes[iChildID] = true;	// Mark the child
+					queue.push(iChildID);
 				}
 			}
+		}
 		);
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for(int i = 0; i < numChildren; ++i)
 			{
@@ -144,6 +130,125 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 
 // http://sc05.supercomputing.org/schedule/pdf/pap346.pdf
 // This version performs concurrently the BP on the nodes at the same level.
+void ParallelBPFromNode_1DPartitioning_Precise(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
+{
+	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
+	// Stores the number of time a node has been visited.
+	tbb::concurrent_unordered_map<int, tbb::atomic<int>> visitedNodes;
+
+	// If l is the level of the nodes being updated, then N is the list of node IDs at the level l+1 
+	tbb::concurrent_queue<int> N;
+	auto sourceNode = pGraph->GetNI(sourceNodeID);
+	int numChildren = sourceNode.GetOutDeg();
+	for(int i = 0; i < numChildren; ++i)
+	{
+		int childID = sourceNode.GetOutNId(i);
+		N.push(childID);
+		visitedNodes[childID] = 1;
+	}
+
+	while(true)
+	{
+		int numNodesToProcess = N.unsafe_size();
+		// Parse level l
+		if(numNodesToProcess > 50)
+		{
+			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
+				[&](const tbb::blocked_range<int>& r)
+			{
+				for (int i=r.begin();i!=r.end();++i)
+				{
+					int childID;
+					N.try_pop(childID);
+					auto child = pGraph->GetNI(childID);
+					int numTimeVisited = visitedNodes[childID];
+					if(numTimeVisited >= child.GetInDeg() && numTimeVisited < INT_MAX)
+					{
+						// Update child
+						double dBelief = 1.0;
+						int numParents = child.GetInDeg();
+
+						for(int k = 0; k < numParents; ++k)
+							dBelief = dBelief*(1-child.GetInEDat(k)*child.GetInNDat(k));
+						pGraph->SetNDat(childID, 1.0-dBelief);
+						visitedNodes[childID] = INT_MAX;	
+					}
+
+					int numNodesAtNextLevel = child.GetOutDeg();
+					// Enqueue the layer of nodes at level l+1
+					for(int j = 0; j < numNodesAtNextLevel; ++j)
+					{
+						int nextLevelNodeID = child.GetOutNId(j);
+						auto it = visitedNodes.find(nextLevelNodeID);
+						if(it == visitedNodes.end())
+						{
+							N.push(nextLevelNodeID);
+							visitedNodes[nextLevelNodeID] = 1;
+						}
+						else
+						{
+							if(it->second < pGraph->GetNI(nextLevelNodeID).GetInDeg())
+							{
+								N.push(nextLevelNodeID);
+								++(it->second);
+							}
+						}
+					}
+				}
+			}
+			);
+		}
+		else
+			// Not enough elements to do the work concurrently
+		{
+			for (int i=0;i<numNodesToProcess;++i)
+			{
+				int childID;
+				N.try_pop(childID);
+				auto child = pGraph->GetNI(childID);
+				int numTimeVisited = visitedNodes[childID];
+				if(numTimeVisited >= child.GetInDeg() && numTimeVisited < INT_MAX)
+				{
+					// Update child
+					double dBelief = 1.0;
+					int numParents = child.GetInDeg();
+
+					for(int k = 0; k < numParents; ++k)
+						dBelief = dBelief*(1-child.GetInEDat(k)*child.GetInNDat(k));
+					pGraph->SetNDat(childID, 1.0-dBelief);
+					visitedNodes[childID] = INT_MAX;
+				}
+
+				int numNodesAtNextLevel = child.GetOutDeg();
+				// Enqueue the layer of nodes at level l+1
+				for(int j = 0; j < numNodesAtNextLevel; ++j)
+				{
+					int nextLevelNodeID = child.GetOutNId(j);
+					auto it = visitedNodes.find(nextLevelNodeID);
+					if(it == visitedNodes.end())
+					{
+						N.push(nextLevelNodeID);
+						visitedNodes[nextLevelNodeID] = 1;
+					}
+					else
+					{
+						if(it->second < pGraph->GetNI(nextLevelNodeID).GetInDeg())
+						{
+							N.push(nextLevelNodeID);
+							++(it->second);
+						}
+					}
+				}
+			}
+		}
+
+		if(N.empty())
+			return;
+	}
+}
+
+// http://sc05.supercomputing.org/schedule/pdf/pap346.pdf
+// This version performs concurrently the BP on the nodes at the same level.
 void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int sourceNodeID)
 {
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
@@ -157,13 +262,9 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int
 	for(int i = 0; i < numChildren; ++i)
 		N.push(sourceNode.GetOutNId(i));
 
-	tbb::atomic<int> sharedNumNodesAtNextLevel;
-	sharedNumNodesAtNextLevel.store(numChildren);
-
 	while(true)
 	{
-		int numNodesToProcess = sharedNumNodesAtNextLevel;
-		sharedNumNodesAtNextLevel = 0;
+		int numNodesToProcess = N.unsafe_size();
 		// Parse level l
 		if(numNodesToProcess > 50)
 		{
@@ -188,13 +289,15 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int
 					for(int j = 0; j < numNodesAtNextLevel; ++j)
 					{
 						int nextLevelNodeID = child.GetOutNId(j);
+						// Note that this part is not completely threadsafe and that a same node maybe be pushed twice.
+						// To make it completely threadsafe we would need to make the following if statement a critical section, which would kill
+						// the purpose of using a concurrent hash map for visitedNodes
 						if(visitedNodes.count(nextLevelNodeID) == 0)
 						{
 							N.push(nextLevelNodeID);
 							visitedNodes[nextLevelNodeID] = true;
 						}
 					}
-					sharedNumNodesAtNextLevel += numNodesAtNextLevel;
 				}
 			}
 			);
@@ -225,7 +328,6 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int
 						visitedNodes[nextLevelNodeID] = true;
 					}
 				}
-				sharedNumNodesAtNextLevel += numNodesAtNextLevel;
 			}
 		}
 
@@ -234,11 +336,12 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>> pGraph, int
 	}
 }
 
-#define _TEST_Email_EuAll
-//#define _TEST_p2p_Gnutella09
+//#define _TEST_Email_EuAll
+#define _TEST_p2p_Gnutella09
 
-// #define _SAVE_TO_FILE
-// #define _TEST_GRAPH
+//#define _LOAD_FROM_FILE
+//#define _SAVE_TO_FILE
+//#define _TEST_GRAPH
 
 int main(int argc, char* argv[])
 {
@@ -258,7 +361,8 @@ int main(int argc, char* argv[])
 	pGraph->SetEDat(1,2, 0.5);
 	tbb::tick_count tic = tbb::tick_count::now();
 	//PropagateFromNode(pGraph, 0);
-	ParallelBPFromNode(pGraph, 0);
+	//ParallelBPFromNode(pGraph, 0);
+	ParallelBPFromNode_1DPartitioning(pGraph, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	std:: cout << pGraph->GetNDat(0).Val << " " << pGraph->GetNDat(1).Val << " " << pGraph->GetNDat(2).Val << std::endl;
 #endif
@@ -270,7 +374,8 @@ int main(int argc, char* argv[])
 	// Start traversing the graph
 	cout << "Starting BP from nodeID 0. The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
 	tbb::tick_count tic = tbb::tick_count::now();
-	PropagateFromNode(pGraph, 0);
+	//PropagateFromNode(pGraph, 0);
+	ParallelBPFromNode_1DPartitioning(pGraph, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed: " << dElapsedTime << " seconds\n";
 #endif
@@ -287,19 +392,22 @@ int main(int argc, char* argv[])
 	// Start traversing the graph
 	cout << "Starting BP from nodeID 0. The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
 	tbb::tick_count tic = tbb::tick_count::now();
-	ParallelBPFromNode(pGraph, 0);
+	for(int i = 0; i<100; ++i)
+		ParallelBPFromNode(pGraph, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel BP: " << dElapsedTime << " seconds\n";
+	cout << "Time elapsed for parallel BP: " << dElapsedTime/100 << " seconds\n";
 
 	tic = tbb::tick_count::now();
-	ParallelBPFromNode_1DPartitioning(pGraph, 0);
+	for(int i = 0; i<100; ++i)
+		ParallelBPFromNode_1DPartitioning(pGraph, 0);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime << " seconds\n";
+	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/100 << " seconds\n";
 
 	tic = tbb::tick_count::now();
-	PropagateFromNode(pGraph, 0);
+	for(int i = 0; i<100; ++i)
+		PropagateFromNode(pGraph, 0);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for serial BP: " << dElapsedTime << " seconds\n";
+	cout << "Time elapsed for serial BP: " << dElapsedTime/100 << " seconds\n";
 #endif
 
 #ifdef _TEST_Email_EuAll
