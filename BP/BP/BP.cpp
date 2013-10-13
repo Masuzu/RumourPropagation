@@ -83,8 +83,10 @@ static void ParallelBPFromNode_UpdateChild(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph
 	tbb::concurrent_hash_map<int, bool>::accessor acc;
 	// Mark the child
 	if(visitedNodes.insert(acc,iChildID))
+	{
 		// Current thread inserted key and has exclusive access.
-			queue.push(iChildID);
+		queue.push(iChildID);
+	}
 }
 
 void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
@@ -111,7 +113,7 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 			);
 		}
 		else
-			// Not enough elements to do the work concurrently
+		// Not enough elements to do the work concurrently
 		{
 			for(int i = 0; i < numChildren; ++i)
 				ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
@@ -148,8 +150,10 @@ static void ParallelBPFromNode_1DPartitioning_UpdateNode(TPt<TNodeEDatNet<TFlt, 
 		tbb::concurrent_hash_map<int, bool>::accessor acc;
 		// Mark the child
 		if(visitedNodes.insert(acc,iChildID))
+		{
 			// Current thread inserted key and has exclusive access.
-				queue.push(iChildID);
+			queue.push(iChildID);
+		}
 	}
 }
 

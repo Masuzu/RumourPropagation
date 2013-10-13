@@ -10,12 +10,36 @@
 
 using namespace std;
 
+#define _TEST_soc_pokec_relationships
 //#define _TEST_Email_EuAll
 //#define _TEST_p2p_Gnutella09
 
-#define _LOAD_FROM_FILE
+//#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
 //#define _TEST_GRAPH
+
+void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIterations)
+{
+	// Start traversing the graph
+	cout << "Starting BP from nodeID " << sourceNode << ". The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
+	tbb::tick_count tic = tbb::tick_count::now();
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode(pGraph, sourceNode);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for parallel BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	tic = tbb::tick_count::now();
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode_1DPartitioning(pGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	tic = tbb::tick_count::now();
+	for(int i = 0; i<numIterations; ++i)
+		PropagateFromNode(pGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
+}
 
 int main(int argc, char* argv[])
 {
@@ -44,14 +68,7 @@ int main(int argc, char* argv[])
 #ifdef _LOAD_FROM_FILE
 	TFIn FIn("test.graph");
 	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
-
-	// Start traversing the graph
-	cout << "Starting BP from nodeID 0. The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
-	tbb::tick_count tic = tbb::tick_count::now();
-	//PropagateFromNode(pGraph, 0);
-	ParallelBPFromNode_1DPartitioning(pGraph, 0);
-	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed: " << dElapsedTime << " seconds\n";
+	TestGraph(pGraph, 0, 100);
 #endif
 
 #ifdef _SAVE_TO_FILE
@@ -63,45 +80,17 @@ int main(int argc, char* argv[])
 
 #ifdef _TEST_p2p_Gnutella09
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("p2p-Gnutella09.txt", 0, 1);
-	// Start traversing the graph
-	cout << "Starting BP from nodeID 0. The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
-	tbb::tick_count tic = tbb::tick_count::now();
-	for(int i = 0; i<100; ++i)
-		ParallelBPFromNode(pGraph, 0);
-	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel BP: " << dElapsedTime/100 << " seconds\n";
-
-	tic = tbb::tick_count::now();
-	for(int i = 0; i<100; ++i)
-		ParallelBPFromNode_1DPartitioning(pGraph, 0);
-	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/100 << " seconds\n";
-
-	tic = tbb::tick_count::now();
-	for(int i = 0; i<100; ++i)
-		PropagateFromNode(pGraph, 0);
-	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for serial BP: " << dElapsedTime/100 << " seconds\n";
+	TestGraph(pGraph, 0, 100);
 #endif
 
 #ifdef _TEST_Email_EuAll
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Email-EuAll.txt", 0, 1);
-	// Start traversing the graph
-	cout << "Starting BP from nodeID 0. The input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
-	tbb::tick_count tic = tbb::tick_count::now();
-	ParallelBPFromNode(pGraph, 0);
-	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel BP: " << dElapsedTime << " seconds\n";
+	TestGraph(pGraph, 0, 100);
+#endif
 
-	tic = tbb::tick_count::now();
-	ParallelBPFromNode_1DPartitioning(pGraph, 0);
-	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime << " seconds\n";
-
-	tic = tbb::tick_count::now();
-	PropagateFromNode(pGraph, 0);
-	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for serial BP: " << dElapsedTime << " seconds\n";
+#ifdef _TEST_soc_pokec_relationships
+	auto pGraph = TSnap::LoadConnList<TPt<TNodeEDatNet<TFlt, TFlt>>>("soc-pokec-relationships.txt");
+	TestGraph(pGraph, 1, 1);
 #endif
 
 #ifdef _WIN32
