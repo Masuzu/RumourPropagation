@@ -15,13 +15,44 @@ using namespace std;
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-//#define _TEST_Email_EuAll
+#define _TEST_Email_EuAll
 //#define _TEST_p2p_Gnutella09
 
 //#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
 //#define _TEST_GRAPH
-#define _TEST_DAG2
+//#define _TEST_DAG2
+
+void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs, int numIterations)
+{
+
+	cout << "Starting BP from nodeID {";
+	for(int sourceNode : vSeedIDs)
+		cout << sourceNode << " ";
+	cout << "}\nThe input graph has " << pGraph->GetNodes() << " nodes and " << pGraph->GetEdges() << " edges.\n";
+
+	// Start traversing the graph
+	tbb::tick_count tic = tbb::tick_count::now();
+	for(int sourceNode : vSeedIDs)
+		for(int i = 0; i<numIterations; ++i)
+			ParallelBPFromNode(pGraph, sourceNode);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for parallel BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	tic = tbb::tick_count::now();
+	for(int sourceNode : vSeedIDs)
+		for(int i = 0; i<numIterations; ++i)
+			ParallelBPFromNode_1DPartitioning(pGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	tic = tbb::tick_count::now();
+	for(int sourceNode : vSeedIDs)
+		for(int i = 0; i<numIterations; ++i)
+			PropagateFromNode(pGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
+}
 
 void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIterations)
 {
@@ -114,11 +145,34 @@ int main(int argc, char* argv[])
 
 #ifdef _TEST_p2p_Gnutella09
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("p2p-Gnutella09.txt", 0, 1);
-	TestGraph(pGraph, 0, 100);
+	
+	RandomGraphInitialization(pGraph);
+
+	std::vector<int> vSeedNodeIDs;
+	vSeedNodeIDs.push_back(0);
+	vSeedNodeIDs.push_back(11);
+	vSeedNodeIDs.push_back(21);
+	pGraph = DAG2(pGraph, vSeedNodeIDs, 0);
+	//pGraph = DAG2(pGraph, 0, 0);
+	TestGraph(pGraph, vSeedNodeIDs, 100);
 #endif
 
 #ifdef _TEST_Email_EuAll
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Email-EuAll.txt", 0, 1);
+
+	std::vector<int> vSeedNodeIDs;
+	vSeedNodeIDs.push_back(0);
+	vSeedNodeIDs.push_back(2);
+	vSeedNodeIDs.push_back(6);
+
+	RandomGraphInitialization(pGraph);
+
+	tbb::tick_count tic = tbb::tick_count::now();
+	pGraph = DAG2(pGraph, vSeedNodeIDs, 0);
+	//pGraph = DAG2(pGraph, 0, 0);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
+	
 	TestGraph(pGraph, 0, 100);
 #endif
 

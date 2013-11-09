@@ -171,6 +171,15 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateRandomBayesianNetwork(unsigned int minNumN
 	return pGraph;
 }
 
+void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
+{
+	srand(time(NULL));
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+		pGraph->SetEDat(EI.GetSrcNId(), EI.GetDstNId(), (double) rand() / RAND_MAX);
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+		pGraph->SetNDat(NI.GetId(), (double) rand() / RAND_MAX);
+}
+
 ///////////
 // DAG 2 //
 ///////////
@@ -244,10 +253,6 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 //! Edges with a propagation probability strictly greater than dThreshold are ignored
 TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold)
 {
-	double logThreshold = log(dThreshold);
-	if(dThreshold==0)
-		logThreshold=-DBL_MAX;
-
 	//////////////////////////////////////////////////////////////
 	// Compte the Maximum Influence Out-Arborescence with Dijkstra
 
