@@ -75,6 +75,23 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
 #endif
 {
+	int superRootID = pGraph->GetNodes();
+	pGraph->AddNode(superRootID);
+	pGraph->SetNDat(superRootID, 1.0);
+	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
+	{
+		pGraph->AddEdge(superRootID, *it);
+		pGraph->SetEDat(superRootID, *it, 1.0);
+	}
+
+#ifdef _DEBUG
+	PropagateFromNode(pGraph, superRootID, bDisplayInfo);
+#else
+	PropagateFromNode(pGraph, superRootID);
+#endif
+
+	// Remove the artificial super root node
+	pGraph->DelNode(superRootID);
 }
 
 static void ParallelBPFromNode_UpdateChild(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, TNodeEDatNet<TFlt, TFlt>::TNodeI &parent,
@@ -127,6 +144,23 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 				ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
 		}
 	}
+}
+
+void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
+{
+	int superRootID = pGraph->GetNodes();
+	pGraph->AddNode(superRootID);
+	pGraph->SetNDat(superRootID, 1.0);
+	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
+	{
+		pGraph->AddEdge(superRootID, *it);
+		pGraph->SetEDat(superRootID, *it, 1.0);
+	}
+
+	ParallelBPFromNode(pGraph, superRootID);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(superRootID);
 }
 
 static void ParallelBPFromNode_1DPartitioning_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph,
@@ -199,4 +233,21 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, in
 		if(queue.empty())
 			return;
 	}
+}
+
+void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
+{
+	int superRootID = pGraph->GetNodes();
+	pGraph->AddNode(superRootID);
+	pGraph->SetNDat(superRootID, 1.0);
+	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
+	{
+		pGraph->AddEdge(superRootID, *it);
+		pGraph->SetEDat(superRootID, *it, 1.0);
+	}
+
+	ParallelBPFromNode_1DPartitioning(pGraph, superRootID);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(superRootID);
 }

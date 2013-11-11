@@ -15,13 +15,13 @@ using namespace std;
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-//#define _TEST_Email_EuAll
+#define _TEST_Email_EuAll
 //#define _TEST_p2p_Gnutella09
 
 //#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
 //#define _TEST_GRAPH
-#define _TEST_DAG2
+//#define _TEST_DAG2
 
 void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs, int numIterations)
 {
@@ -33,23 +33,20 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs,
 
 	// Start traversing the graph
 	tbb::tick_count tic = tbb::tick_count::now();
-	for(int sourceNode : vSeedIDs)
-		for(int i = 0; i<numIterations; ++i)
-			ParallelBPFromNode(pGraph, sourceNode);
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode(pGraph, vSeedIDs);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for parallel BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
-	for(int sourceNode : vSeedIDs)
-		for(int i = 0; i<numIterations; ++i)
-			ParallelBPFromNode_1DPartitioning(pGraph, sourceNode);
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode_1DPartitioning(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
-	for(int sourceNode : vSeedIDs)
-		for(int i = 0; i<numIterations; ++i)
-			PropagateFromNode(pGraph, sourceNode);
+	for(int i = 0; i<numIterations; ++i)
+		PropagateFromNode(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
 }
