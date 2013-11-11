@@ -30,12 +30,21 @@
     <ClCompile Include="BP.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="AEWorkerThread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="BP.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AEFunctorSlot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AEWorkerThread.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

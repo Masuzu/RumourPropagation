@@ -11,12 +11,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AEWorkerThread.cpp" />
     <ClCompile Include="BP.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="snap-core\Snap.cpp" />
     <ClCompile Include="Utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AEFunctorSlot.h" />
+    <ClInclude Include="AEWorkerThread.h" />
     <ClInclude Include="BP.h" />
     <ClInclude Include="Utilities.h" />
   </ItemGroup>

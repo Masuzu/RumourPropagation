@@ -186,7 +186,7 @@ void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 
 //! Given pGraph with data about edge weights, computes the distance of the shortest paths from sourceNode
 //! and returns the result in the nodes of pDAGGraph.
-//! Updates the edges if bUpdateEdges is set to true. Default is false.
+//! Updates the edges if bUpdateEdges is set to true. Default is false. In that case only the node data is updated with the shortest distance to sourceNode.
 //! @note Requires initial values for the nodes of pDAGGraph (edges are not needed)
 void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold, TPt<TNodeEDatNet<TFlt, TFlt>>& pDAGGraph, bool bUpdateEdges = false)
 {
@@ -272,6 +272,8 @@ TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	return pDAGGraph;
 }
 
+//! Graph union between the graphs of vGraphs
+//! @note Does not copy edge or node data.
 TPt<TNodeEDatNet<TFlt, TFlt>> GraphUnion(const std::vector<TPt<TNodeEDatNet<TFlt, TFlt>>> &vGraphs)
 {
 	auto pOut = TNodeEDatNet<TFlt, TFlt>::New();
@@ -295,25 +297,35 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GraphUnion(const std::vector<TPt<TNodeEDatNet<TFlt
 	return pOut;
 }
 
-// Output: pGraph with the updated sum weight in each node
-// Requires initial values for the nodes of pDAGGraph (edges are not needed)
-void UpdateSumWeightOfShortestPath(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, TPt<TNodeEDatNet<TFlt, TFlt>>& pDAGGraph, const std::vector<int> &vSeedIDs, double dThreshold)
-{
-	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
-		Dijkstra(pGraph, *it, dThreshold, pDAGGraph);
-}
-
 TPt<TNodeEDatNet<TFlt, TFlt>> DAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs, double dThreshold)
 {
 	// Vector of MIOA graphs per seed node
 	std::vector<TPt<TNodeEDatNet<TFlt, TFlt>>> vMIOAGraphs;
+
+	// Compute the union of MIOA for each node of vSeedIDs
 	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
 		vMIOAGraphs.push_back(MIOA(pGraph, *it, dThreshold));
 	auto pOut = GraphUnion(vMIOAGraphs);
+
+	// Set node data
 	for (auto NI = pOut->BegNI(); NI < pOut->EndNI(); NI++)
 		pOut->SetNDat(NI.GetId(), FLT_MAX);
 
-	UpdateSumWeightOfShortestPath(pGraph, pOut, vSeedIDs, dThreshold);
+	// Copy the edge weights from pGraph
+	for (auto EI = pOut->BegEI(); EI < pOut->EndEI(); EI++)
+		pOut->SetEDat(EI.GetSrcNId(), EI.GetDstNId(), pGraph->GetEDat(EI.GetSrcNId(), EI.GetDstNId()));
+
+	// Create a super root in order to update in one pass all the shortest paths from vSeedIDs nodes
+	int superRootID = pGraph->GetNodes();
+	pOut->AddNode(superRootID);
+	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
+	{
+		pOut->AddEdge(superRootID, *it);
+		pOut->SetEDat(superRootID, *it, 1.0);
+	}
+	Dijkstra(pOut, superRootID, dThreshold, pOut);
+	// Remove the artificial super root node
+	pOut->DelNode(superRootID);
 
 	// Traverse the edges and prune the graph
 	for (auto EI = pOut->BegEI(); EI < pOut->EndEI(); EI++)
