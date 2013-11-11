@@ -2,6 +2,7 @@
 #include <Snap.h>
 #include <map>
 #include <algorithm>
+#include <queue>
 
 #ifdef WIN32
 
@@ -184,6 +185,11 @@ void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 // DAG 2 //
 ///////////
 
+struct Order
+{
+    __forceinline bool operator()(int const& a, int const& b) const	{return a > b;}
+};
+
 //! Given pGraph with data about edge weights, computes the distance of the shortest paths from sourceNode
 //! and returns the result in the nodes of pDAGGraph.
 //! Updates the edges if bUpdateEdges is set to true. Default is false. In that case only the node data is updated with the shortest distance to sourceNode.
@@ -198,20 +204,19 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 	std::map<int, bool> visitedNodes;
 	// Stores the edge vertices to build the final DAG
 	std::map<int, int> mapPrevious;
-	std::vector<int> vNonVisitedNodes;
+	std::priority_queue<int, std::vector<int>, Order> vNonVisitedNodes;
 
 	// Distance from source node to itself is 0
 	pDAGGraph->SetNDat(sourceNode, 0);
-	vNonVisitedNodes.push_back(sourceNode);
+	vNonVisitedNodes.push(sourceNode);
 
 	// Beginning of the loop of Dijkstra algorithm
 
 	while(!vNonVisitedNodes.empty())
 	{
 		// Find the vertex in queue with the smallest distance and remove it
-		auto itVertexWithSmallestDistance = std::min_element(vNonVisitedNodes.begin(), vNonVisitedNodes.end());
-		int iParentID = *itVertexWithSmallestDistance;
-		vNonVisitedNodes.erase(itVertexWithSmallestDistance);
+		int iParentID = vNonVisitedNodes.top();
+		vNonVisitedNodes.pop();
 		visitedNodes.insert(std::make_pair(iParentID, true));
 		auto parent = pGraph->GetNI(iParentID);
 
@@ -237,7 +242,7 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 							itPrevious->second = iParentID;
 					}
 					// Add non-visited iChildID into vNonVisitedNodes to be processed
-					vNonVisitedNodes.push_back(iChildID);                          
+					vNonVisitedNodes.push(iChildID);                          
 				}
 			}
 		}

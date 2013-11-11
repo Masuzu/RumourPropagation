@@ -12,6 +12,8 @@
 
 #include <Snap.h>
 
+#include "AEWorkerThread.h"
+
 #ifdef _WIN64
 #ifndef _DEBUG
 #pragma comment(lib, "intel64/vc11/tbb.lib")
@@ -201,8 +203,6 @@ static void ParallelBPFromNode_1DPartitioning_UpdateNode(TPt<TNodeEDatNet<TFlt, 
 
 void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
-	static tbb::spin_mutex sMutex;
-
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
 	tbb::concurrent_hash_map<int, bool> visitedNodes;
 
@@ -250,4 +250,38 @@ void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, co
 
 	// Remove the artificial super root node
 	pGraph->DelNode(superRootID);
+}
+
+
+void __stdcall PropagateFromNode_ThreadSafe(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
+{
+	static tbb::spin_mutex sMutex;
+
+	// Used to store the nodes which have been traversed during the breadth-first search traversal
+	std::map<int, bool> visitedNodes;
+	std::queue<int> queue;
+	queue.push(sourceNodeID);
+	visitedNodes[sourceNodeID] = true;
+
+	while(!queue.empty())
+	{
+		int nodeID = queue.front();
+
+		auto parent = pGraph->GetNI(nodeID);	
+		int numChildren = parent.GetOutDeg();
+		// Update the belief of the children of parent
+		for(int i = 0; i < numChildren; ++i)
+		{
+			int iChildID = parent.GetOutNId(i);
+			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+			pGraph->SetNDat(iChildID,
+				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
+		
+			// Mark the child
+			if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+				queue.push(iChildID);
+		}
+
+		queue.pop();
+	}
 }

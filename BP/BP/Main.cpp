@@ -5,7 +5,6 @@
 #include <tbb/tick_count.h>
 
 #include <iostream>
-
 #include <Snap.h>
 
 
