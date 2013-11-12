@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
 	vSeedNodeIDs.push_back(1);
-	pGraph = DAG2(pGraph, vSeedNodeIDs, 0);
+	pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
 	//pGraph = MIOA(pGraph, 0, 0);
 	TSnap::SaveGViz(pGraph, "test.gv", "Test DAG", true);
 #endif
@@ -148,8 +148,8 @@ int main(int argc, char* argv[])
 	vSeedNodeIDs.push_back(0);
 	vSeedNodeIDs.push_back(11);
 	vSeedNodeIDs.push_back(21);
-	pGraph = DAG2(pGraph, vSeedNodeIDs, 0);
-	//pGraph = DAG2(pGraph, 0, 0);
+	pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
 	TestGraph(pGraph, vSeedNodeIDs, 100);
 #endif
 
@@ -164,8 +164,8 @@ int main(int argc, char* argv[])
 	RandomGraphInitialization(pGraph);
 
 	tbb::tick_count tic = tbb::tick_count::now();
-	pGraph = DAG2(pGraph, vSeedNodeIDs, 0);
-	//pGraph = DAG2(pGraph, 0, 0);
+	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	

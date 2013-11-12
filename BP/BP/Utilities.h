@@ -19,10 +19,15 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateRandomBayesianNetwork(unsigned int minNumN
 
 void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph);
 
-TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, double& threshold, std::vector<int>& seedNodes);
-
+//! Input : Directed graph with initialized weight edges.
+//! Edges with a propagation probability strictly greater than dThreshold are ignored.
+//! @note Initial nodes values are initialized to FLT_MAX.
 TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold=0.0);
 
-TPt<TNodeEDatNet<TFlt, TFlt>> DAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs, double dThreshold=0.0);
+TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int>& seedNodes, double threshold = 0.0);
 
-TPt<TNodeEDatNet<TFlt, TFlt>> DAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold=0.0);
+TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, double threshold = 0.0);
+
+TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs, double dThreshold=0.0);
+
+TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold=0.0);
