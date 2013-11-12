@@ -181,10 +181,6 @@ void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 		pGraph->SetNDat(NI.GetId(), (double) rand() / RAND_MAX);
 }
 
-///////////
-// DAG 2 //
-///////////
-
 struct Order
 {
     __forceinline bool operator()(int const& a, int const& b) const	{return a > b;}
@@ -254,6 +250,7 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 			pDAGGraph->AddEdge(it->second, it->first);
 }
 
+
 //! Input : Directed graph with initialized weight edges.
 //! Edges with a propagation probability strictly greater than dThreshold are ignored
 TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold)
@@ -276,6 +273,62 @@ TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 
 	return pDAGGraph;
 }
+
+
+///////////
+// DAG 1 //
+///////////
+
+TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, double& threshold, std::vector<int>& seedNodes)
+{
+	// Copy pGraph into pGraph_DAG1
+	auto pGraph_DAG1 = TNodeEDatNet<TFlt, TFlt>::New();
+
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+	{
+		pGraph_DAG1->AddNode(NI.GetID());
+	}
+	
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+	{
+		pGraph_DAG1->AddEdge(EI.GetSrcNId(),EI.GetDstNId());
+		pGraph_DAG1->SetEDat(EI.GetSrcNId(),EI.GetDstNId(), pGraph->GetEDat(EI.GetSrcNId(),EI.GetDstNId()));
+	}
+
+	// Create a super root in order to update in one pass all the shortest paths from vSeedIDs nodes
+	int superRootID = pGraph_DAG1->GetNodes();
+	pGraph_DAG1->AddNode(superRootID);
+	for(int srcNode: seedNodes)
+	{
+		pOut->AddEdge(superRootID, srcNode);
+		pOut->SetEDat(superRootID, srcNode, 1.0);
+	}
+	pGraph_DAG1 = MIOA(pGraph_DAG1, superRootID, dThreshold);
+	// Remove the artificial super root node
+	pGraph_DAG1->DelNode(superRootID);
+
+	// Add back other edges with the condition r(u)<r(v)
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+	{
+		int u = EI.GetSrcNId(), v = EI.GetDstNId();
+		if(pGraph_DAG1->GetNDat(u)< pGraph_DAG1->GetNDat(v))
+		{
+			if (!pGraph_DAG1->IsEdge(u,v))
+			{
+				pGraph_DAG1->AddEdge(u,v);
+				pGraph_DAG1->SetEDat(u,v,EI.GetDat());
+			}
+		}
+	}
+
+//cout<<parentNodes.size()<<endl;
+	return pGraph_DAG1;
+}
+
+
+///////////
+// DAG 2 //
+///////////
 
 //! Graph union between the graphs of vGraphs
 //! @note Does not copy edge or node data.
