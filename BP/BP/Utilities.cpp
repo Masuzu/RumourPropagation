@@ -1,12 +1,15 @@
-#include "Utilities.h"
-#include <Snap.h>
+#include <iostream>
 #include <map>
 #include <algorithm>
 #include <queue>
+#include <float.h>
+#include "Utilities.h"
+#include <Snap.h>
+
+
+using namespace std;
 
 #ifdef WIN32
-
-#include <Windows.h>
 
 //--------------------------------------------------------------------------------------
 // Helper functions for querying information about the processors in the current
@@ -183,7 +186,7 @@ void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 
 struct Order
 {
-    __forceinline bool operator()(int const& a, int const& b) const	{return a > b;}
+    inline bool operator()(std::pair<int,double> const& a, std::pair<int,double> const& b) const {return a.second > b.second;}
 };
 
 //! Given pGraph with data about edge weights, computes the distance of the shortest paths from sourceNode
@@ -200,24 +203,27 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 	std::map<int, bool> visitedNodes;
 	// Stores the edge vertices to build the final DAG
 	std::map<int, int> mapPrevious;
-	std::priority_queue<int, std::vector<int>, Order> vNonVisitedNodes;
+	std::priority_queue<std::pair<int,double>, std::vector<std::pair<int,double>>, Order> nodesToVisit;
 
 	// Distance from source node to itself is 0
 	pDAGGraph->SetNDat(sourceNode, 0);
-	vNonVisitedNodes.push(sourceNode);
+	nodesToVisit.push(std::make_pair(sourceNode,0));
 
 	// Beginning of the loop of Dijkstra algorithm
 
-	while(!vNonVisitedNodes.empty())
+	while(!nodesToVisit.empty())
 	{
 		// Find the vertex in queue with the smallest distance and remove it
-		int iParentID = vNonVisitedNodes.top();
-		vNonVisitedNodes.pop();
-		visitedNodes.insert(std::make_pair(iParentID, true));
-		auto parent = pGraph->GetNI(iParentID);
+		int iParentID = -1;
+		while (!nodesToVisit.empty() && visitedNodes[iParentID = nodesToVisit.top().first])
+			nodesToVisit.pop();
+		if (iParentID == -1) break;
 
+		// mark the vertex with the shortest distance
+		visitedNodes[iParentID]=true;
+
+		auto parent = pGraph->GetNI(iParentID);
 		int numChildren = parent.GetOutDeg();
-		
 		for(int i = 0; i < numChildren; ++i)
 		{
 			int iChildID = parent.GetOutNId(i);
@@ -226,19 +232,14 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 			if(alt >= logThreshold)
 			{
 				auto it = visitedNodes.find(iChildID);
-				if (alt < pDAGGraph->GetNDat(iChildID) && it == visitedNodes.end())
+				if (alt < pDAGGraph->GetNDat(iChildID) && it->second == false)
 				{
+					//1. update distance
+					//2. update the predecessor
+					//3. push new shortest rank of chidren nodes
 					pDAGGraph->SetNDat(iChildID, alt);
-					if(bUpdateEdges)
-					{
-						auto itPrevious = mapPrevious.find(iChildID);
-						if(itPrevious==mapPrevious.end())
-							mapPrevious.insert(std::make_pair(iChildID, iParentID));
-						else
-							itPrevious->second = iParentID;
-					}
-					// Add non-visited iChildID into vNonVisitedNodes to be processed
-					vNonVisitedNodes.push(iChildID);                          
+					mapPrevious[iChildID]= iParentID;
+					nodesToVisit.push(std::make_pair(iChildID,alt));
 				}
 			}
 		}
@@ -263,7 +264,6 @@ TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		pDAGGraph->AddNode(NodeID);
 		pDAGGraph->SetNDat(NodeID, FLT_MAX);
 	}
-
 	Dijkstra(pGraph, sourceNode, dThreshold, pDAGGraph, true);
 
 	// pDAGGraph is the MIOA starting from sourceNode
@@ -291,8 +291,9 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &
 	}
 
 	// Create a super root in order to update in one pass all the shortest paths from vSeedIDs nodes
-	int superRootID = pGraph_DAG1->GetNodes();
+	int superRootID =  pGraph_DAG1->GetMxNId()+1;
 	pGraph_DAG1->AddNode(superRootID);
+
 	for(int srcNode: seedNodes)
 	{
 		pGraph_DAG1->AddEdge(superRootID, srcNode);
@@ -301,6 +302,7 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &
 	pGraph_DAG1 = MIOA(pGraph_DAG1, superRootID, threshold);
 	// Remove the artificial super root node
 	pGraph_DAG1->DelNode(superRootID);
+
 
 	// Add back other edges with the condition r(u)<r(v)
 	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)

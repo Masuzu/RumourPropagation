@@ -129,11 +129,16 @@ int main(int argc, char* argv[])
 #ifdef _LOAD_FROM_FILE
 	TFIn FIn("test.graph");
 	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
-	TestGraph(pGraph, 0, 100);
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+		std::cout << EI.GetSrcNId() << " " << EI.GetDstNId() << " " << EI.GetDat() << std::endl;
+	PropagateFromNode(pGraph, 3);
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+		std::cout << NI.GetId() << " " << NI.GetDat() << std::endl;
 #endif
 
 #ifdef _SAVE_TO_FILE
 	auto pGraph = GenerateRandomBayesianNetwork(1, 5, 5, 7, 30);
+	RandomGraphInitialization(pGraph);
 	TFOut FOut("test.graph");
 	pGraph->Save(FOut);
 	TSnap::SaveGViz(pGraph, "test.gv", "Test DAG", true);
@@ -164,8 +169,8 @@ int main(int argc, char* argv[])
 	RandomGraphInitialization(pGraph);
 
 	tbb::tick_count tic = tbb::tick_count::now();
-	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
-	//pGraph = GenerateDAG2(pGraph, 0, 0);
+	//pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
+	pGraph = GenerateDAG2(pGraph, 0, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	

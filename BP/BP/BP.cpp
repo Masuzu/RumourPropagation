@@ -35,6 +35,8 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID, 
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 #endif
 {
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
 	// Used to store the nodes which have been traversed during the breadth-first search traversal
 	std::map<int, bool> visitedNodes;
 	std::queue<int> queue;
@@ -118,6 +120,8 @@ static void ParallelBPFromNode_UpdateChild(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph
 
 void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
 	tbb::concurrent_hash_map<int, bool> visitedNodes;
 
@@ -203,6 +207,8 @@ static void ParallelBPFromNode_1DPartitioning_UpdateNode(TPt<TNodeEDatNet<TFlt, 
 
 void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
 	tbb::concurrent_hash_map<int, bool> visitedNodes;
 
