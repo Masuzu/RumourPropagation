@@ -58,13 +58,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(SolutionDir)/TBB/include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\debug\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\debug\link-static\threading-multi;$(SolutionDir)/TBB/lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;$(SolutionDir)/TBB/include;C:\Boost\include\boost-1_54;$(SolutionDir)/libDAI-0.3.1\include;$(SolutionDir)/mpir-2.6.0;C:\Boost\include\boost-1_54\boost\tr1;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)/TBB/lib;$(SolutionDir)/libDAI-0.3.1/vc10/Debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <LibraryPath>C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\thread\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\date_time\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\system\build\msvc-11.0\release\link-static\threading-multi;C:\Program Files %28x86%29\boost_1_54_0\bin.v2\libs\chrono\build\msvc-11.0\release\link-static\threading-multi;$(SolutionDir)/TBB/lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;C:\Program Files %28x86%29\boost_1_54_0;$(SolutionDir)/TBB/include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)/TBB/lib;$(SolutionDir)/libDAI-0.3.1/vc10/Release;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir)/snap-core;$(ProjectDir)/snap-adv;$(ProjectDir)/glib-core;$(SolutionDir)/TBB/include;C:\Boost\include\boost-1_54;$(SolutionDir)/libDAI-0.3.1\include;$(SolutionDir)\mpir-2.6.0;C:\Boost\include\boost-1_54\boost\tr1;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -72,12 +72,13 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_USE_libDAI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -88,7 +89,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_USE_libDAI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
     </ClCompile>
     <Link>
@@ -96,6 +97,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

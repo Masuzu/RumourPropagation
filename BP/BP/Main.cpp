@@ -14,10 +14,10 @@ using namespace std;
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-#define _TEST_Email_EuAll
+//#define _TEST_Email_EuAll
 //#define _TEST_p2p_Gnutella09
 
-//#define _LOAD_FROM_FILE
+#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
 //#define _TEST_GRAPH
 //#define _TEST_DAG2
@@ -129,11 +129,29 @@ int main(int argc, char* argv[])
 #ifdef _LOAD_FROM_FILE
 	TFIn FIn("test.graph");
 	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
-	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
-		std::cout << EI.GetSrcNId() << " " << EI.GetDstNId() << " " << EI.GetDat() << std::endl;
+
+	//for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+		//std::cout << EI.GetSrcNId() << " " << EI.GetDstNId() << " " << EI.GetDat() << std::endl;
+
+	std::cout << "ExactBP_Marginalization(pGraph, 3)\n";
+	ExactBP_Marginalization(pGraph, 3);
+	auto ExactBPGraph = CopyGraph(pGraph);
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+		std::cout << NI.GetId() << " " << NI.GetDat() << std::endl;
+
+	ResetGraphBelief(pGraph);
+	std::cout << "PropagateFromNode(pGraph, 3)\n";
 	PropagateFromNode(pGraph, 3);
 	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
 		std::cout << NI.GetId() << " " << NI.GetDat() << std::endl;
+
+	std::cout << "Error : " << BPError(ExactBPGraph, pGraph, [] (double a, double b) -> double { return abs(a-b); })  << std::endl;
+
+	std::vector<int> vSeedNodes;
+	vSeedNodes.push_back(0);
+	vSeedNodes.push_back(3);
+	pGraph = GenerateDAG2(pGraph, vSeedNodes);
+	TSnap::SaveGViz(pGraph, "testDAG.gv", "Test DAG", true);
 #endif
 
 #ifdef _SAVE_TO_FILE

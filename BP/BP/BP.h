@@ -6,6 +6,10 @@ template <class T> class TPt;
 template <class T, class U> class TNodeEDatNet;
 class TFlt;
 
+#ifdef _USE_libDAI
+void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID);
+#endif
+
 #ifdef _DEBUG
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID, bool bDisplayInfo = false);
 #else

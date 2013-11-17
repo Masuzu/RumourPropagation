@@ -175,6 +175,35 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateRandomBayesianNetwork(unsigned int minNumN
 	return pGraph;
 }
 
+TPt<TNodeEDatNet<TFlt, TFlt>> CopyGraph(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
+{
+	// Copy the nodes of pGraph
+	auto pCopy = TNodeEDatNet<TFlt, TFlt>::New();
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+	{
+		int NodeID = NI.GetId();
+		pCopy->AddNode(NodeID);
+		pCopy->SetNDat(NodeID, NI.GetDat().Val);
+	}
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+	{
+		pCopy->AddEdge(EI.GetSrcNId(), EI.GetDstNId());
+		pCopy->SetEDat(EI.GetSrcNId(), EI.GetDstNId(), EI.GetDat().Val);
+	}
+	return pCopy;
+}
+
+void AddSuperRootNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedNodes, int superRootNodeID)
+{
+	pGraph->AddNode(superRootNodeID);
+	pGraph->SetNDat(superRootNodeID, 1.0);
+	for(int srcNode: vSeedNodes)
+	{
+		pGraph->AddEdge(superRootNodeID, srcNode);
+		pGraph->SetEDat(superRootNodeID, srcNode, 1.0);
+	}
+}
+
 void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 {
 	srand(time(NULL));
@@ -184,10 +213,11 @@ void RandomGraphInitialization(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 		pGraph->SetNDat(NI.GetId(), (double) rand() / RAND_MAX);
 }
 
-struct Order
+void ResetGraphBelief(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 {
-    inline bool operator()(std::pair<int,double> const& a, std::pair<int,double> const& b) const {return a.second > b.second;}
-};
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+		pGraph->SetNDat(NI.GetId(), 0.0);
+}
 
 //! Given pGraph with data about edge weights, computes the distance of the shortest paths from sourceNode
 //! and returns the result in the nodes of pDAGGraph.
@@ -203,6 +233,8 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 	std::map<int, bool> visitedNodes;
 	// Stores the edge vertices to build the final DAG
 	std::map<int, int> mapPrevious;
+
+	struct Order	{inline bool operator()(std::pair<int,double> const& a, std::pair<int,double> const& b) const	{return a.second > b.second;}};
 	std::priority_queue<std::pair<int,double>, std::vector<std::pair<int,double>>, Order> nodesToVisit;
 
 	// Distance from source node to itself is 0
@@ -232,7 +264,7 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 			if(alt >= logThreshold)
 			{
 				auto it = visitedNodes.find(iChildID);
-				if (alt < pDAGGraph->GetNDat(iChildID) && it->second == false)
+				if (alt < pDAGGraph->GetNDat(iChildID) && it == visitedNodes.end())
 				{
 					//1. update distance
 					//2. update the predecessor
@@ -291,17 +323,10 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG1(const TPt<TNodeEDatNet<TFlt, TFlt>> &
 	}
 
 	// Create a super root in order to update in one pass all the shortest paths from vSeedIDs nodes
-	int superRootID =  pGraph_DAG1->GetMxNId()+1;
-	pGraph_DAG1->AddNode(superRootID);
-
-	for(int srcNode: seedNodes)
-	{
-		pGraph_DAG1->AddEdge(superRootID, srcNode);
-		pGraph_DAG1->SetEDat(superRootID, srcNode, 1.0);
-	}
-	pGraph_DAG1 = MIOA(pGraph_DAG1, superRootID, threshold);
+	AddSuperRootNode(pGraph_DAG1, seedNodes);
+	pGraph_DAG1 = MIOA(pGraph_DAG1, INT_MAX, threshold);
 	// Remove the artificial super root node
-	pGraph_DAG1->DelNode(superRootID);
+	pGraph_DAG1->DelNode(INT_MAX);
 
 
 	// Add back other edges with the condition r(u)<r(v)
@@ -376,16 +401,10 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 		pOut->SetEDat(EI.GetSrcNId(), EI.GetDstNId(), pGraph->GetEDat(EI.GetSrcNId(), EI.GetDstNId()));
 
 	// Create a super root in order to update in one pass all the shortest paths from vSeedIDs nodes
-	int superRootID = pGraph->GetNodes();
-	pOut->AddNode(superRootID);
-	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
-	{
-		pOut->AddEdge(superRootID, *it);
-		pOut->SetEDat(superRootID, *it, 1.0);
-	}
-	Dijkstra(pOut, superRootID, dThreshold, pOut);
+	AddSuperRootNode(pOut, vSeedIDs);
+	Dijkstra(pOut, INT_MAX, dThreshold, pOut);
 	// Remove the artificial super root node
-	pOut->DelNode(superRootID);
+	pOut->DelNode(INT_MAX);
 
 	// Traverse the edges and prune the graph
 	for (auto EI = pOut->BegEI(); EI < pOut->EndEI(); EI++)
@@ -402,4 +421,67 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 	std::vector<int> vSeedIDs;
 	vSeedIDs.push_back(sourceNode);
 	return GenerateDAG2(pGraph, vSeedIDs, dThreshold);
+}
+
+// End of DAG2
+
+TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode)
+{
+	// Copy pGraph into pOut
+	auto pOut = TNodeEDatNet<TFlt, TFlt>::New();
+
+	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+		pOut->AddNode(NI.GetId());
+
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+	{
+		pOut->AddEdge(EI.GetSrcNId(),EI.GetDstNId());
+		pOut->SetEDat(EI.GetSrcNId(),EI.GetDstNId(), pGraph->GetEDat(EI.GetSrcNId(),EI.GetDstNId()));
+	}
+
+	int currentRank=0;
+	pOut->SetNDat(sourceNode, currentRank);
+	++currentRank;
+
+	// Used to store the nodes which have been traversed during the breadth-first search traversal
+	std::map<int, bool> visitedNodes;
+	std::queue<int> queue;
+	queue.push(sourceNode);
+	visitedNodes[sourceNode] = true;
+
+	while(!queue.empty())
+	{
+		int nodeID = queue.front();
+		auto parent = pGraph->GetNI(nodeID);	
+		int numChildren = parent.GetOutDeg();
+		for(int i = 0; i < numChildren; ++i)
+		{
+			int iChildID = parent.GetOutNId(i);
+			pOut->SetNDat(iChildID, currentRank);
+			// Mark the child
+			if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+				queue.push(iChildID);
+		}
+
+		queue.pop();
+		++currentRank;
+	}
+
+	return pOut;
+}
+
+double BPError(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph1, const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph2, const std::function<double(double, double)> &fn)
+{
+	double error=0.0;
+	unsigned int count=0;
+	for(auto NI=pGraph1->BegNI(); NI < pGraph1->EndNI(); NI++)
+	{
+		
+		if(NI.GetDat().Val != 0.0 || pGraph2->GetNDat(NI.GetId()).Val != 0.0)
+		{
+			++count;
+			error+=fn(NI.GetDat().Val, pGraph2->GetNDat(NI.GetId()).Val);
+		}
+	}
+	return error/count;
 }
