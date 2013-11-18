@@ -41,6 +41,7 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold=0.0);
 
 //! Compute the rank from sourceNode using BFS. sourceNode has rank 0.
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &mapResult);
 TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode);
 
 //! @note pGraph1 and pGraph2 must have the same nodes

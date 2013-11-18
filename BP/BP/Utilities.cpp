@@ -425,6 +425,46 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 
 // End of DAG2
 
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &mapResult)
+{
+	// Copy pGraph into pOut
+	int currentRank=0;
+	int numNodes = pGraph->GetNodes();
+	mapResult.reserve(pGraph->GetNodes());
+	for(int i = 0; i<numNodes; ++i)
+		mapResult.push_back(0);
+	mapResult[sourceNode]=0;
+	++currentRank;
+
+	// Used to store the nodes which have been traversed during the breadth-first search traversal
+	std::map<int, bool> visitedNodes;
+	std::queue<int> queue;
+	queue.push(sourceNode);
+	visitedNodes[sourceNode] = true;
+
+	while(!queue.empty())
+	{
+		int numNodesToProcess = queue.size();
+		for(int i=0; i< numNodesToProcess; ++i)
+		{
+			int nodeID = queue.front();
+			auto parent = pGraph->GetNI(nodeID);	
+			int numChildren = parent.GetOutDeg();
+			for(int i = 0; i < numChildren; ++i)
+			{
+				int iChildID = parent.GetOutNId(i);
+				mapResult[iChildID] = currentRank;
+				// Mark the child
+				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+					queue.push(iChildID);
+			}
+
+			queue.pop();
+		}
+		++currentRank;
+	}
+}
+
 TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode)
 {
 	// Copy pGraph into pOut

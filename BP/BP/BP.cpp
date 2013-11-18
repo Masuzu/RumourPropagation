@@ -27,6 +27,7 @@
 
 #include "AEWorkerThread.h"
 #include "Utilities.h"
+#include "BP.h"
 
 #ifdef _WIN64
 #ifndef _DEBUG
@@ -41,11 +42,6 @@
 #pragma comment(lib, "ia32/vc11/tbb_debug.lib")
 #endif
 #endif
-
-
-/// FOR TESTS
-static tbb::atomic<int> count;
-
 
 #ifdef _USE_libDAI
 void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
@@ -202,7 +198,6 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::v
 // One-pass BP //
 /////////////////
 
-// http://snap.stanford.edu/snap/quick.html
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
 	pGraph->SetNDat(sourceNodeID, 1.0);
@@ -246,6 +241,46 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<
 	pGraph->DelNode(INT_MAX);
 }
 
+// DAG version
+
+void PropagateFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
+{
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
+	std::queue<int> queue;
+	queue.push(sourceNodeID);
+
+	while(!queue.empty())
+	{
+		int nodeID = queue.front();
+
+		auto parent = pGraph->GetNI(nodeID);	
+		int numChildren = parent.GetOutDeg();
+		// Update the belief of the children of parent
+		for(int i = 0; i < numChildren; ++i)
+		{
+			int iChildID = parent.GetOutNId(i);
+			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+			pGraph->SetNDat(iChildID,
+				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
+
+			queue.push(iChildID);
+		}
+
+		queue.pop();
+	}
+}
+
+void PropagateFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
+{
+	AddSuperRootNode(pGraph, vSeedIDs);
+
+	PropagateFromNodeDAG(pGraph, INT_MAX);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(INT_MAX);
+}
+
 
 /////////////////
 // Parallel BP //
@@ -273,6 +308,9 @@ static void ParallelBPFromNode_UpdateChild(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph
 
 void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
@@ -286,6 +324,9 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 	{
 		auto parent = pGraph->GetNI(nodeID);
 		int numChildren = parent.GetOutDeg();
+#ifdef _DEBUG_INFO
+		meter+=numChildren;
+#endif
 		if(numChildren > 50)
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0,numChildren, 50), 
@@ -303,6 +344,9 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 				ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
 		}
 	}
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
+#endif
 }
 
 void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
@@ -310,6 +354,70 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector
 	AddSuperRootNode(pGraph, vSeedIDs);
 
 	ParallelBPFromNode(pGraph, INT_MAX);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(INT_MAX);
+}
+
+// DAG version
+
+static void ParallelBPFromNodeDAG_UpdateChild(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, TNodeEDatNet<TFlt, TFlt>::TNodeI &parent,
+	tbb::concurrent_queue<int> &queue, int i)
+{
+	int iChildID = parent.GetOutNId(i);
+	// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+	pGraph->SetNDat(iChildID,
+		1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
+
+	queue.push(iChildID);
+}
+
+void ParallelBPFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
+{
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
+	tbb::concurrent_queue<int> queue;
+	queue.push(sourceNodeID);
+
+	int nodeID;
+	while(queue.try_pop(nodeID))
+	{
+		auto parent = pGraph->GetNI(nodeID);
+		int numChildren = parent.GetOutDeg();
+#ifdef _DEBUG_INFO
+		meter+=numChildren;
+#endif
+		if(numChildren > 50)
+		{
+			tbb::parallel_for(tbb::blocked_range<int>(0,numChildren, 50), 
+				[&](const tbb::blocked_range<int>& r)
+				{
+					for (int i=r.begin();i!=r.end();++i)
+						ParallelBPFromNodeDAG_UpdateChild(pGraph, parent, queue, i);
+				}
+			);
+		}
+		else
+		// Not enough elements to do the work concurrently
+		{
+			for(int i = 0; i < numChildren; ++i)
+				ParallelBPFromNodeDAG_UpdateChild(pGraph, parent, queue, i);
+		}
+	}
+
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
+#endif
+}
+
+void ParallelBPFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
+{
+	AddSuperRootNode(pGraph, vSeedIDs);
+
+	ParallelBPFromNodeDAG(pGraph, INT_MAX);
 
 	// Remove the artificial super root node
 	pGraph->DelNode(INT_MAX);
@@ -328,7 +436,6 @@ static void ParallelBPFromNode_LevelSynchronous_UpdateNode(TPt<TNodeEDatNet<TFlt
 	queue.try_pop(iParentID);
 	auto parent = pGraph->GetNI(iParentID);
 	int numChildren = parent.GetOutDeg();
-	++count;
 	for(int j=0; j<numChildren; ++j)
 	{
 		int iChildID = parent.GetOutNId(j);
@@ -358,8 +465,9 @@ static void ParallelBPFromNode_LevelSynchronous_UpdateNode(TPt<TNodeEDatNet<TFlt
 
 void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
-	count.store(0);
-
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
 	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
@@ -371,6 +479,9 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	while(!queue.empty())
 	{
 		int numNodesToProcess = queue.unsafe_size();
+#ifdef _DEBUG_INFO
+		meter+=numNodesToProcess;
+#endif
 		// Parse level l
 		if(numNodesToProcess > 50)
 		{
@@ -390,7 +501,9 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		}
 	}
 
-		std::cout << count << std::endl;
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
+#endif
 }
 
 void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
@@ -403,17 +516,186 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	pGraph->DelNode(INT_MAX);
 }
 
+// DAG version
 
-// One-pass BP2
+static void ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph,
+	tbb::concurrent_queue<int> &queue, bool MT = true)
+{
+	static tbb::spin_mutex sMutex;
 
-static void ParallelBP2_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, tbb::concurrent_queue<int> &queue,
+	int iParentID;
+	queue.try_pop(iParentID);
+	auto parent = pGraph->GetNI(iParentID);
+	int numChildren = parent.GetOutDeg();
+	for(int j=0; j<numChildren; ++j)
+	{
+		int iChildID = parent.GetOutNId(j);
+		// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
+		if(MT)
+		{
+			tbb::spin_mutex::scoped_lock lock(sMutex);
+			pGraph->SetNDat(iChildID,
+				1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
+		}
+		else
+			pGraph->SetNDat(iChildID,
+				1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
+
+		queue.push(iChildID);
+	}
+}
+
+void ParallelBPFromNodeDAG_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
+{
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
+	tbb::concurrent_queue<int> queue;
+	queue.push(sourceNodeID);
+
+	while(!queue.empty())
+	{
+		int numNodesToProcess = queue.unsafe_size();
+#ifdef _DEBUG_INFO
+		meter+=numNodesToProcess;
+#endif
+		// Parse level l
+		if(numNodesToProcess > 50)
+		{
+			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
+				[&](const tbb::blocked_range<int>& r)
+				{
+					for (int i=r.begin();i!=r.end();++i)
+						ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(pGraph, queue, true); 
+				}
+			);
+		}
+		else
+		// Not enough elements to do the work concurrently
+		{
+			for (int i=0;i<numNodesToProcess;++i)
+				ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(pGraph, queue, false); 
+		}
+	}
+	
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
+#endif
+}
+
+void ParallelBPFromNodeDAG_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
+{
+	AddSuperRootNode(pGraph, vSeedIDs);
+
+	ParallelBPFromNodeDAG_LevelSynchronous(pGraph, INT_MAX);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(INT_MAX);
+}
+
+
+/////////////////////////////////////////////////
+// ParallelBPFromNode_SingleNodeUpdate_UpdateNode
+
+static void ParallelBPFromNode_SingleNodeUpdate_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap,
+	tbb::concurrent_queue<int> &queue,
 	unsigned int refRank, unsigned int currentRank)
 {
-	++count;
+	unsigned int nextRank = currentRank+1;
 	int nodeID;
 	queue.try_pop(nodeID);
 	auto node = pGraph->GetNI(nodeID);
-	int kDebug = pRankGraph->GetNDat(nodeID).Val-refRank;
+	if((pRankMap[nodeID]-refRank) == currentRank)
+	{
+		int numParents = node.GetInDeg();
+		double p=1.0;
+		for(int j=0; j<numParents; ++j)
+			p *= (1.0 - node.GetInNDat(j)*node.GetInEDat(j));
+		node.GetDat().Val = 1-p;
+		int numChildren = node.GetOutDeg();
+		for(int j=0; j<numChildren; ++j)
+		{
+			int candidateNodeID = node.GetOutNId(j);
+			if((pRankMap[candidateNodeID]-refRank)==nextRank)
+				queue.push(candidateNodeID);
+		}
+	}
+}
+
+void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& _pRankMap, int sourceNodeID)
+{
+	std::vector<int> pRankMap;
+	CalculateRankFromSource(pGraph, sourceNodeID, pRankMap);
+
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
+	pGraph->SetNDat(sourceNodeID, 1.0);
+
+	tbb::concurrent_queue<int> queue;
+	unsigned int currentRank = 1;
+	unsigned int refRank = pRankMap[sourceNodeID];
+
+	// Initialize queue
+	auto parent = pGraph->GetNI(sourceNodeID);
+	int numChildren = parent.GetOutDeg();
+	for(int j=0; j<numChildren; ++j)
+	{
+		int candidateNodeID = parent.GetOutNId(j);
+		if((pRankMap[candidateNodeID]-refRank)==1)	
+			queue.push(candidateNodeID);
+	}
+	
+	while(!queue.empty())
+	{
+		int numNodesToProcess = queue.unsafe_size();
+#ifdef _DEBUG_INFO
+		meter += numNodesToProcess;
+#endif
+		if(numNodesToProcess > 50)
+		{
+			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
+				[&](const tbb::blocked_range<int>& r)
+				{
+					for (int i=r.begin();i!=r.end();++i)
+						ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, queue, refRank, currentRank); 
+				}
+			);
+		}
+		else
+		// Not enough elements to do the work concurrently
+		{
+			for (int i=0;i<numNodesToProcess;++i)
+				ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, queue, refRank, currentRank); 
+		}
+		++currentRank;
+	}
+
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
+#endif
+}
+
+void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap, const std::vector<int> &vSeedIDs)
+{
+	AddSuperRootNode(pGraph, vSeedIDs);
+
+	ParallelBPFromNode_SingleNodeUpdate(pGraph, pRankMap, INT_MAX);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(INT_MAX);
+}
+
+static void ParallelBPFromNode_SingleNodeUpdate_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph,
+	tbb::concurrent_queue<int> &queue,
+	unsigned int refRank, unsigned int currentRank)
+{
+	unsigned int nextRank = currentRank+1;
+	int nodeID;
+	queue.try_pop(nodeID);
+	auto node = pGraph->GetNI(nodeID);
 	if((pRankGraph->GetNDat(nodeID).Val-refRank) == currentRank)
 	{
 		int numParents = node.GetInDeg();
@@ -423,12 +705,19 @@ static void ParallelBP2_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const 
 		node.GetDat().Val = 1-p;
 		int numChildren = node.GetOutDeg();
 		for(int j=0; j<numChildren; ++j)
-			queue.push(node.GetOutNId(j));
+		{
+			int candidateNodeID = node.GetOutNId(j);
+			if((pRankGraph->GetNDat(candidateNodeID).Val-refRank)==nextRank)
+				queue.push(candidateNodeID);
+		}
 	}
 }
 
-void ParallelBP2(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, int sourceNodeID)
+void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, int sourceNodeID)
 {
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
 	tbb::concurrent_queue<int> queue;
@@ -439,18 +728,25 @@ void ParallelBP2(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<T
 	auto parent = pGraph->GetNI(sourceNodeID);
 	int numChildren = parent.GetOutDeg();
 	for(int j=0; j<numChildren; ++j)
-		queue.push(parent.GetOutNId(j));
-
+	{
+		int candidateNodeID = parent.GetOutNId(j);
+		if((pRankGraph->GetNDat(candidateNodeID).Val-refRank)==1)	
+			queue.push(candidateNodeID);
+	}
+	
 	while(!queue.empty())
 	{
 		int numNodesToProcess = queue.unsafe_size();
+#ifdef _DEBUG_INFO
+		meter += numNodesToProcess;
+#endif
 		if(numNodesToProcess > 50)
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
 				[&](const tbb::blocked_range<int>& r)
 				{
 					for (int i=r.begin();i!=r.end();++i)
-						ParallelBP2_UpdateNode(pGraph, pRankGraph, queue, refRank, currentRank); 
+						ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankGraph, queue, refRank, currentRank); 
 				}
 			);
 		}
@@ -458,87 +754,22 @@ void ParallelBP2(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<T
 		// Not enough elements to do the work concurrently
 		{
 			for (int i=0;i<numNodesToProcess;++i)
-				ParallelBP2_UpdateNode(pGraph, pRankGraph, queue, refRank, currentRank); 
-		}
-		++currentRank;
-	}
-}
-
-void BP2(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, int sourceNodeID)
-{
-	count.store(0);
-
-	pGraph->SetNDat(sourceNodeID, 1.0);
-
-	std::queue<int> queue;
-	unsigned int currentRank = 1;
-	unsigned int refRank = pRankGraph->GetNDat(sourceNodeID).Val;
-
-	// Initialize queue
-	auto parent = pGraph->GetNI(sourceNodeID);
-	int numChildren = parent.GetOutDeg();
-	for(int j=0; j<numChildren; ++j)
-		queue.push(parent.GetOutNId(j));
-
-	while(!queue.empty())
-	{
-		int numNodesToProcess = queue.size();
-		for(int i=0; i< numNodesToProcess; ++i)
-		{
-			++count;
-			auto node = pGraph->GetNI(queue.front());
-			int nodeID = node.GetId();
-			int kDebug = pRankGraph->GetNDat(nodeID).Val-refRank;
-			if((pRankGraph->GetNDat(nodeID).Val-refRank) == currentRank)
-			{
-				int numParents = node.GetInDeg();
-				double p=1.0;
-				for(int j=0; j<numParents; ++j)
-					p *= (1.0 - node.GetInNDat(j)*node.GetInEDat(j));
-				node.GetDat().Val = 1-p;
-				int numChildren = node.GetOutDeg();
-				for(int j=0; j<numChildren; ++j)
-					queue.push(node.GetOutNId(j));
-			}
-			queue.pop();
+				ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankGraph, queue, refRank, currentRank); 
 		}
 		++currentRank;
 	}
 
-	std::cout << count << std::endl;
-}
-
-#if 0
-void __stdcall PropagateFromNode_ThreadSafe(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
-{
-	static tbb::spin_mutex sMutex;
-
-	// Used to store the nodes which have been traversed during the breadth-first search traversal
-	std::map<int, bool> visitedNodes;
-	std::queue<int> queue;
-	queue.push(sourceNodeID);
-	visitedNodes[sourceNodeID] = true;
-
-	while(!queue.empty())
-	{
-		int nodeID = queue.front();
-
-		auto parent = pGraph->GetNI(nodeID);	
-		int numChildren = parent.GetOutDeg();
-		// Update the belief of the children of parent
-		for(int i = 0; i < numChildren; ++i)
-		{
-			int iChildID = parent.GetOutNId(i);
-			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
-			pGraph->SetNDat(iChildID,
-				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
-		
-			// Mark the child
-			if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
-				queue.push(iChildID);
-		}
-
-		queue.pop();
-	}
-}
+#ifdef _DEBUG_INFO
+	std::cout << meter << std::endl;
 #endif
+}
+
+void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, const std::vector<int> &vSeedIDs)
+{
+	AddSuperRootNode(pGraph, vSeedIDs);
+
+	ParallelBPFromNode_SingleNodeUpdate(pGraph, pRankGraph, INT_MAX);
+
+	// Remove the artificial super root node
+	pGraph->DelNode(INT_MAX);
+}
