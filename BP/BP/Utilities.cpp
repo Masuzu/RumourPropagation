@@ -451,19 +451,23 @@ TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFl
 
 	while(!queue.empty())
 	{
-		int nodeID = queue.front();
-		auto parent = pGraph->GetNI(nodeID);	
-		int numChildren = parent.GetOutDeg();
-		for(int i = 0; i < numChildren; ++i)
+		int numNodesToProcess = queue.size();
+		for(int i=0; i< numNodesToProcess; ++i)
 		{
-			int iChildID = parent.GetOutNId(i);
-			pOut->SetNDat(iChildID, currentRank);
-			// Mark the child
-			if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
-				queue.push(iChildID);
-		}
+			int nodeID = queue.front();
+			auto parent = pGraph->GetNI(nodeID);	
+			int numChildren = parent.GetOutDeg();
+			for(int i = 0; i < numChildren; ++i)
+			{
+				int iChildID = parent.GetOutNId(i);
+				pOut->SetNDat(iChildID, currentRank);
+				// Mark the child
+				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+					queue.push(iChildID);
+			}
 
-		queue.pop();
+			queue.pop();
+		}
 		++currentRank;
 	}
 

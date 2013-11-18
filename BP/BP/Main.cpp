@@ -7,24 +7,22 @@
 #include <iostream>
 #include <Snap.h>
 
-
 using namespace std;
 
 // Discussion about variable declaration and loops
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-//#define _TEST_Email_EuAll
+#define _TEST_Email_EuAll
 //#define _TEST_p2p_Gnutella09
 
-#define _LOAD_FROM_FILE
+//#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
 //#define _TEST_GRAPH
 //#define _TEST_DAG2
 
 void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs, int numIterations)
 {
-
 	cout << "Starting BP from nodeID {";
 	for(int sourceNode : vSeedIDs)
 		cout << sourceNode << " ";
@@ -39,7 +37,7 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs,
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
-		ParallelBPFromNode_1DPartitioning(pGraph, vSeedIDs);
+		ParallelBPFromNode_LevelSynchronous(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
 
@@ -62,7 +60,7 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIte
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
-		ParallelBPFromNode_1DPartitioning(pGraph, sourceNode);
+		ParallelBPFromNode_LevelSynchronous(pGraph, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
 
@@ -71,6 +69,18 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIte
 		PropagateFromNode(pGraph, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	auto rankGraph = CalculateRankFromSource(pGraph, sourceNode);
+	tic = tbb::tick_count::now();	
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBP2(pGraph, rankGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for ParallelBP2: " << dElapsedTime/numIterations << " seconds\n";
+
+	for(int i = 0; i<numIterations; ++i)
+		BP2(pGraph, rankGraph, sourceNode);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for BP2: " << dElapsedTime/numIterations << " seconds\n";
 }
 
 int main(int argc, char* argv[])
@@ -92,7 +102,7 @@ int main(int argc, char* argv[])
 	tbb::tick_count tic = tbb::tick_count::now();
 	//PropagateFromNode(pGraph, 0);
 	//ParallelBPFromNode(pGraph, 0);
-	ParallelBPFromNode_1DPartitioning(pGraph, 0);
+	ParallelBPFromNode_LevelSynchronous(pGraph, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	std:: cout << pGraph->GetNDat(0).Val << " " << pGraph->GetNDat(1).Val << " " << pGraph->GetNDat(2).Val << std::endl;
 #endif
@@ -141,7 +151,9 @@ int main(int argc, char* argv[])
 
 	ResetGraphBelief(pGraph);
 	std::cout << "PropagateFromNode(pGraph, 3)\n";
-	PropagateFromNode(pGraph, 3);
+
+	auto rankGraph = CalculateRankFromSource(pGraph, 3);
+	ParallelBP2(pGraph, rankGraph, 3);
 	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
 		std::cout << NI.GetId() << " " << NI.GetDat() << std::endl;
 
@@ -172,6 +184,19 @@ int main(int argc, char* argv[])
 	vSeedNodeIDs.push_back(11);
 	vSeedNodeIDs.push_back(21);
 	pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
+
+	/*
+	std::cout << "ExactBP_Marginalization(pGraph, vSeedNodeIDs)\n";	// Crash out of memory
+	ExactBP_Marginalization(pGraph, vSeedNodeIDs);
+	auto ExactBPGraph = CopyGraph(pGraph);
+
+	ResetGraphBelief(pGraph);
+	std::cout << "PropagateFromNode(pGraph, vSeedNodeIDs)\n";
+	PropagateFromNode(pGraph, vSeedNodeIDs);
+
+	std::cout << "Error : " << BPError(ExactBPGraph, pGraph, [] (double a, double b) -> double { return abs(a-b); })  << std::endl;
+	*/
+
 	//pGraph = GenerateDAG2(pGraph, 0, 0);
 	TestGraph(pGraph, vSeedNodeIDs, 100);
 #endif
@@ -187,12 +212,16 @@ int main(int argc, char* argv[])
 	RandomGraphInitialization(pGraph);
 
 	tbb::tick_count tic = tbb::tick_count::now();
-	//pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
-	pGraph = GenerateDAG2(pGraph, 0, 0);
+	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	
-	TestGraph(pGraph, 0, 100);
+	//TestGraph(pGraph, 0, 100);
+
+	
+	auto rankGraph = CalculateRankFromSource(pGraph, 0);
+	ParallelBPFromNode_LevelSynchronous(pGraph, 0);
 #endif
 
 #ifdef _TEST_soc_pokec_relationships
