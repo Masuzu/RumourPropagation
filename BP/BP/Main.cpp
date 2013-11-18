@@ -140,8 +140,20 @@ void TestGraphDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int num
 	cout << "Time elapsed for ParallelBPFromNode_SingleNodeUpdate: " << dElapsedTime/numIterations << " seconds\n";
 }
 
+#ifdef _USE_CUDA
+extern void MatrixMulOnDevice(float * M, float * N, float * P, int Width);
+#endif
+
 int main(int argc, char* argv[])
 {
+
+#ifdef _USE_CUDA
+	float M[4] = {1, 1, 1, 1};
+	float N[4] = {1, 1, 1, 1};
+	float P[4];
+	MatrixMulOnDevice(M, N, P, 2);
+#endif
+
 #ifdef _TEST_GRAPH
 	auto pGraph = TNodeEDatNet<TFlt, TFlt>::New();
 	pGraph->AddNode(0);

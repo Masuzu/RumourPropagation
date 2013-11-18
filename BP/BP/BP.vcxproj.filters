@@ -56,4 +56,7 @@
       <Filter>Data</Filter>
     </Text>
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="Test.cu" />
+  </ItemGroup>
 </Project>
