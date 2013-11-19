@@ -40,9 +40,15 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 
 TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold=0.0);
 
-//! Compute the rank from sourceNode using BFS. sourceNode has rank 0.
-void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &mapResult);
-TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode);
+//! Compute the rank from sourceNode using BFS.
+//! Nodes already explored may be added back.
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult);
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult);
+
+//! Compute the rank from sourceNode using Bellman Ford with negative unitary weights. sourceNode has rank 0.
+//! Not viable for large graphs.
+void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult);
+void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult);
 
 //! @note pGraph1 and pGraph2 must have the same nodes
 //! Nodes with a null belief are not taken into account.

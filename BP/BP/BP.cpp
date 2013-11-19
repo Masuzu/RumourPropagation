@@ -345,7 +345,7 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 		}
 	}
 #ifdef _DEBUG_INFO
-	std::cout << meter << std::endl;
+	std::cout << "Number of nodes visited: " <<  meter << std::endl;
 #endif
 }
 
@@ -409,7 +409,7 @@ void ParallelBPFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode
 	}
 
 #ifdef _DEBUG_INFO
-	std::cout << meter << std::endl;
+	std::cout << "Number of nodes visited: " << meter << std::endl;
 #endif
 }
 
@@ -502,7 +502,7 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	}
 
 #ifdef _DEBUG_INFO
-	std::cout << meter << std::endl;
+	std::cout << "Number of nodes visited: " << meter << std::endl;
 #endif
 }
 
@@ -600,7 +600,7 @@ void ParallelBPFromNodeDAG_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGrap
 // ParallelBPFromNode_SingleNodeUpdate_UpdateNode
 
 static void ParallelBPFromNode_SingleNodeUpdate_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap,
-	tbb::concurrent_queue<int> &queue,
+	tbb::concurrent_hash_map<int, bool> &visitedNodes, tbb::concurrent_queue<int> &queue,
 	unsigned int refRank, unsigned int currentRank)
 {
 	unsigned int nextRank = currentRank+1;
@@ -618,21 +618,30 @@ static void ParallelBPFromNode_SingleNodeUpdate_UpdateNode(TPt<TNodeEDatNet<TFlt
 		for(int j=0; j<numChildren; ++j)
 		{
 			int candidateNodeID = node.GetOutNId(j);
+
 			if((pRankMap[candidateNodeID]-refRank)==nextRank)
-				queue.push(candidateNodeID);
+			{
+				tbb::concurrent_hash_map<int, bool>::accessor acc;
+				// Mark the child
+				if(visitedNodes.insert(acc,candidateNodeID))
+				{
+					// Current thread inserted key and has exclusive access.
+					queue.push(candidateNodeID);
+				}
+			}
 		}
 	}
 }
 
-void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& _pRankMap, int sourceNodeID)
+void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap, int sourceNodeID)
 {
-	std::vector<int> pRankMap;
-	CalculateRankFromSource(pGraph, sourceNodeID, pRankMap);
-
 #ifdef _DEBUG_INFO
 	int meter = 0;
 #endif
 	pGraph->SetNDat(sourceNodeID, 1.0);
+
+	// Like std::list, insertion of new items does not invalidate any iterators, nor change the order of items already in the map. Insertion and traversal may be concurrent.
+	tbb::concurrent_hash_map<int, bool> visitedNodes;
 
 	tbb::concurrent_queue<int> queue;
 	unsigned int currentRank = 1;
@@ -647,7 +656,6 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		if((pRankMap[candidateNodeID]-refRank)==1)	
 			queue.push(candidateNodeID);
 	}
-	
 	while(!queue.empty())
 	{
 		int numNodesToProcess = queue.unsafe_size();
@@ -660,7 +668,7 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 				[&](const tbb::blocked_range<int>& r)
 				{
 					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, queue, refRank, currentRank); 
+						ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, visitedNodes, queue, refRank, currentRank); 
 				}
 			);
 		}
@@ -668,24 +676,25 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		// Not enough elements to do the work concurrently
 		{
 			for (int i=0;i<numNodesToProcess;++i)
-				ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, queue, refRank, currentRank); 
+				ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, visitedNodes, queue, refRank, currentRank); 
 		}
 		++currentRank;
 	}
 
 #ifdef _DEBUG_INFO
-	std::cout << meter << std::endl;
+	std::cout << "Number of nodes visited: " << meter << std::endl;
 #endif
 }
 
 void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap, const std::vector<int> &vSeedIDs)
 {
-	AddSuperRootNode(pGraph, vSeedIDs);
+	int superRootNodeID = pGraph->GetNodes();
+	AddSuperRootNode(pGraph, vSeedIDs, superRootNodeID);
 
-	ParallelBPFromNode_SingleNodeUpdate(pGraph, pRankMap, INT_MAX);
+	ParallelBPFromNode_SingleNodeUpdate(pGraph, pRankMap, superRootNodeID);
 
 	// Remove the artificial super root node
-	pGraph->DelNode(INT_MAX);
+	pGraph->DelNode(superRootNodeID);
 }
 
 static void ParallelBPFromNode_SingleNodeUpdate_UpdateNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph,
@@ -760,7 +769,7 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	}
 
 #ifdef _DEBUG_INFO
-	std::cout << meter << std::endl;
+	std::cout << "Number of nodes visited: " << meter << std::endl;
 #endif
 }
 

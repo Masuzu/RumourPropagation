@@ -14,8 +14,8 @@ using namespace std;
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-#define _TEST_Email_EuAll
-//#define _TEST_p2p_Gnutella09
+//#define _TEST_Email_EuAll
+#define _TEST_p2p_Gnutella09
 
 //#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
@@ -40,13 +40,21 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs,
 	for(int i = 0; i<numIterations; ++i)
 		ParallelBPFromNode_LevelSynchronous(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+	cout << "Time elapsed for parallel level synchronous BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
 		PropagateFromNode(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	std::vector<int> vResult;
+	CalculateRankFromSource(pGraph, vSeedIDs, vResult);
+	tic = tbb::tick_count::now();	
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode_SingleNodeUpdate(pGraph, vResult, vSeedIDs);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for ParallelBPFromNode_SingleNodeUpdate: " << dElapsedTime/numIterations << " seconds\n";
 }
 
 void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIterations)
@@ -63,7 +71,7 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIte
 	for(int i = 0; i<numIterations; ++i)
 		ParallelBPFromNode_LevelSynchronous(pGraph, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+	cout << "Time elapsed for parallel level synchronous BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
@@ -71,12 +79,11 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIte
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
 
-	//auto rankGraph = CalculateRankFromSource(pGraph, sourceNode);
-	std::vector<int> mapResult;
-	CalculateRankFromSource(pGraph, sourceNode, mapResult);
+	std::vector<int> vResult;
+	CalculateRankFromSource(pGraph, sourceNode, vResult);
 	tic = tbb::tick_count::now();	
 	for(int i = 0; i<numIterations; ++i)
-		ParallelBPFromNode_SingleNodeUpdate(pGraph, mapResult, sourceNode);
+		ParallelBPFromNode_SingleNodeUpdate(pGraph, vResult, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for ParallelBPFromNode_SingleNodeUpdate: " << dElapsedTime/numIterations << " seconds\n";
 }
@@ -99,13 +106,21 @@ void TestGraphDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedI
 	for(int i = 0; i<numIterations; ++i)
 		ParallelBPFromNodeDAG_LevelSynchronous(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+	cout << "Time elapsed for parallel level synchronous BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
 		PropagateFromNodeDAG(pGraph, vSeedIDs);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
+
+	std::vector<int> vResult;
+	CalculateRankFromSource(pGraph, vSeedIDs, vResult);
+	tic = tbb::tick_count::now();	
+	for(int i = 0; i<numIterations; ++i)
+		ParallelBPFromNode_SingleNodeUpdate(pGraph, vResult, vSeedIDs);
+	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for ParallelBPFromNode_SingleNodeUpdate: " << dElapsedTime/numIterations << " seconds\n";
 }
 
 void TestGraphDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int numIterations)
@@ -122,7 +137,7 @@ void TestGraphDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int num
 	for(int i = 0; i<numIterations; ++i)
 		ParallelBPFromNodeDAG_LevelSynchronous(pGraph, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
-	cout << "Time elapsed for parallel 1D partitioning BP: " << dElapsedTime/numIterations << " seconds\n";
+	cout << "Time elapsed for parallel level synchronous BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	tic = tbb::tick_count::now();
 	for(int i = 0; i<numIterations; ++i)
@@ -131,11 +146,11 @@ void TestGraphDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, int num
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	//auto rankGraph = CalculateRankFromSource(pGraph, sourceNode);
-	std::vector<int> mapResult;
-	CalculateRankFromSource(pGraph, sourceNode, mapResult);
+	std::vector<int> vResult;
+	CalculateRankFromSource(pGraph, sourceNode, vResult);
 	tic = tbb::tick_count::now();	
 	for(int i = 0; i<numIterations; ++i)
-		ParallelBPFromNode_SingleNodeUpdate(pGraph, mapResult, sourceNode);
+		ParallelBPFromNode_SingleNodeUpdate(pGraph, vResult, sourceNode);
 	dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for ParallelBPFromNode_SingleNodeUpdate: " << dElapsedTime/numIterations << " seconds\n";
 }
@@ -212,6 +227,7 @@ int main(int argc, char* argv[])
 	//for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
 		//std::cout << EI.GetSrcNId() << " " << EI.GetDstNId() << " " << EI.GetDat() << std::endl;
 
+	/*
 	std::cout << "ExactBP_Marginalization(pGraph, 3)\n";
 	ExactBP_Marginalization(pGraph, 3);
 	auto ExactBPGraph = CopyGraph(pGraph);
@@ -220,20 +236,24 @@ int main(int argc, char* argv[])
 
 	ResetGraphBelief(pGraph);
 	std::cout << "PropagateFromNode(pGraph, 3)\n";
+	*/
 
-	std::map<int, int> mapRanks;
+	std::vector<int> mapRanks;
 	CalculateRankFromSource(pGraph, 3, mapRanks);
+
 	ParallelBPFromNode_SingleNodeUpdate(pGraph, mapRanks, 3);
 	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
 		std::cout << NI.GetId() << " " << NI.GetDat() << std::endl;
 
-	std::cout << "Error : " << BPError(ExactBPGraph, pGraph, [] (double a, double b) -> double { return abs(a-b); })  << std::endl;
+	//std::cout << "Error : " << BPError(ExactBPGraph, pGraph, [] (double a, double b) -> double { return abs(a-b); })  << std::endl;
 
+	/*
 	std::vector<int> vSeedNodes;
 	vSeedNodes.push_back(0);
 	vSeedNodes.push_back(3);
 	pGraph = GenerateDAG2(pGraph, vSeedNodes);
 	TSnap::SaveGViz(pGraph, "testDAG.gv", "Test DAG", true);
+	*/
 #endif
 
 #ifdef _SAVE_TO_FILE
@@ -253,7 +273,8 @@ int main(int argc, char* argv[])
 	vSeedNodeIDs.push_back(0);
 	vSeedNodeIDs.push_back(11);
 	vSeedNodeIDs.push_back(21);
-	pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
+	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
+	//pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
 
 	/*
 	std::cout << "ExactBP_Marginalization(pGraph, vSeedNodeIDs)\n";	// Crash out of memory

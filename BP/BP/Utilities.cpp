@@ -424,16 +424,55 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
 }
 
 // End of DAG2
-
-void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &mapResult)
+ 
+void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult)
 {
-	// Copy pGraph into pOut
+	int numNodes = pGraph->GetNodes();
+	vResult.reserve(numNodes);
+	for(int i = 0; i<numNodes; ++i)
+		vResult.push_back(INT_MAX);
+	vResult[sourceNode]=0;
+
+	for (size_t i = 0; i < (vResult.size() - 1); ++i)
+	{
+		for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+		{
+			double alt = vResult[EI.GetSrcNId()] - 1;
+			if (alt < vResult[EI.GetDstNId()])
+				vResult[EI.GetDstNId()] = alt;
+		}
+	}
+
+	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+	{
+		if ((vResult[EI.GetSrcNId()] - 1) < vResult[EI.GetDstNId()])
+		{
+			OutputDebugStringA("Bellman Ford error : Negative cycle detected");
+			exit(-1);
+		}
+	}
+
+	// Revert the rank to positive values
+	for(int i = 0; i<numNodes; ++i)
+		vResult[i] *= -1;
+}
+
+void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult)
+{
+	auto pTemp = CopyGraph(pGraph);
+	int superRootNodeID = pTemp->GetNodes();
+	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
+	CalculateRankFromSource_BellmanFord(pTemp, superRootNodeID, vResult);
+}
+
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult)
+{
 	int currentRank=0;
 	int numNodes = pGraph->GetNodes();
-	mapResult.reserve(pGraph->GetNodes());
+	vResult.reserve(pGraph->GetNodes());
 	for(int i = 0; i<numNodes; ++i)
-		mapResult.push_back(0);
-	mapResult[sourceNode]=0;
+		vResult.push_back(INT_MAX);
+	vResult[sourceNode]=0;
 	++currentRank;
 
 	// Used to store the nodes which have been traversed during the breadth-first search traversal
@@ -448,12 +487,15 @@ void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int so
 		for(int i=0; i< numNodesToProcess; ++i)
 		{
 			int nodeID = queue.front();
-			auto parent = pGraph->GetNI(nodeID);	
+			auto parent = pGraph->GetNI(nodeID);        
 			int numChildren = parent.GetOutDeg();
 			for(int i = 0; i < numChildren; ++i)
 			{
 				int iChildID = parent.GetOutNId(i);
-				mapResult[iChildID] = currentRank;
+				// If we update a node which has already been updated previously, we need to add it back to the queue to update the other nodes.
+				if(vResult[iChildID]<currentRank)
+					visitedNodes.erase(iChildID);
+				vResult[iChildID] = currentRank;
 				// Mark the child
 				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
 					queue.push(iChildID);
@@ -465,53 +507,12 @@ void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int so
 	}
 }
 
-TPt<TNodeEDatNet<TFlt, TFlt>> CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode)
+void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult)
 {
-	// Copy pGraph into pOut
-	auto pOut = TNodeEDatNet<TFlt, TFlt>::New();
-
-	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
-		pOut->AddNode(NI.GetId());
-
-	for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
-	{
-		pOut->AddEdge(EI.GetSrcNId(),EI.GetDstNId());
-		pOut->SetEDat(EI.GetSrcNId(),EI.GetDstNId(), pGraph->GetEDat(EI.GetSrcNId(),EI.GetDstNId()));
-	}
-
-	int currentRank=0;
-	pOut->SetNDat(sourceNode, currentRank);
-	++currentRank;
-
-	// Used to store the nodes which have been traversed during the breadth-first search traversal
-	std::map<int, bool> visitedNodes;
-	std::queue<int> queue;
-	queue.push(sourceNode);
-	visitedNodes[sourceNode] = true;
-
-	while(!queue.empty())
-	{
-		int numNodesToProcess = queue.size();
-		for(int i=0; i< numNodesToProcess; ++i)
-		{
-			int nodeID = queue.front();
-			auto parent = pGraph->GetNI(nodeID);	
-			int numChildren = parent.GetOutDeg();
-			for(int i = 0; i < numChildren; ++i)
-			{
-				int iChildID = parent.GetOutNId(i);
-				pOut->SetNDat(iChildID, currentRank);
-				// Mark the child
-				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
-					queue.push(iChildID);
-			}
-
-			queue.pop();
-		}
-		++currentRank;
-	}
-
-	return pOut;
+	auto pTemp = CopyGraph(pGraph);
+	int superRootNodeID = pTemp->GetNodes();
+	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
+	CalculateRankFromSource(pTemp, superRootNodeID, vResult);
 }
 
 double BPError(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph1, const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph2, const std::function<double(double, double)> &fn)
