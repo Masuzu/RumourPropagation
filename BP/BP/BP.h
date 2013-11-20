@@ -36,3 +36,7 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int>& pRankMap, const std::vector<int> &vSeedIDs);
 void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, int sourceNodeID);
 void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const TPt<TNodeEDatNet<TFlt, TFlt>>& pRankGraph, const std::vector<int> &vSeedIDs);
+
+double InfluenceSpreadFromSeedNodes (const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph);
+
+void MaxIncrementalInfluence(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int numRounds, std::vector<int> &vSeedSet);

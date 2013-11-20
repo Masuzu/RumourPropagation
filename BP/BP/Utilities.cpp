@@ -280,7 +280,10 @@ void Dijkstra(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, doubl
 
 	if(bUpdateEdges)
 		for(auto it=mapPrevious.begin(); it!= mapPrevious.end(); ++it)
+		{
 			pDAGGraph->AddEdge(it->second, it->first);
+			pDAGGraph->SetEDat(it->second,it->first, pGraph->GetEDat(it->second,it->first));
+		}
 }
 
 TPt<TNodeEDatNet<TFlt, TFlt>> MIOA(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode, double dThreshold)
@@ -460,7 +463,7 @@ void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pG
 void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult)
 {
 	auto pTemp = CopyGraph(pGraph);
-	int superRootNodeID = pTemp->GetNodes();
+	int superRootNodeID = pGraph->GetMxNId();
 	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
 	CalculateRankFromSource_BellmanFord(pTemp, superRootNodeID, vResult);
 }
@@ -510,7 +513,7 @@ void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int so
 void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult)
 {
 	auto pTemp = CopyGraph(pGraph);
-	int superRootNodeID = pTemp->GetNodes();
+	int superRootNodeID = pGraph->GetMxNId();
 	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
 	CalculateRankFromSource(pTemp, superRootNodeID, vResult);
 }
