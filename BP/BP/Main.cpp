@@ -14,8 +14,8 @@ using namespace std;
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
 //#define _TEST_soc_pokec_relationships
-//#define _TEST_Email_EuAll
-#define _TEST_p2p_Gnutella09
+#define _TEST_Email_EuAll
+//#define _TEST_p2p_Gnutella04
 
 //#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
@@ -49,7 +49,7 @@ void TestGraph(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, std::vector<int> vSeedIDs,
 	cout << "Time elapsed for serial BP: " << dElapsedTime/numIterations << " seconds\n";
 
 	std::vector<int> vResult;
-	CalculateRankFromSource(pGraph, vSeedIDs, vResult);
+	CalculateRankFromSource_BellmanFord(pGraph, vSeedIDs, vResult);
 	tic = tbb::tick_count::now();	
 	for(int i = 0; i<numIterations; ++i)
 		ParallelBPFromNode_SingleNodeUpdate(pGraph, vResult, vSeedIDs);
@@ -264,15 +264,16 @@ int main(int argc, char* argv[])
 	TSnap::SaveGViz(pGraph, "test.gv", "Test DAG", true);
 #endif
 
-#ifdef _TEST_p2p_Gnutella09
-	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("p2p-Gnutella09.txt", 0, 1);
-	
+#ifdef _TEST_p2p_Gnutella04
+	/*TFIn FIn("p2p-Gnutella04.graph");
+	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
+	ResetGraphBelief(pGraph);*/
+
+	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("p2p-Gnutella04.txt", 0, 1);
 	RandomGraphInitialization(pGraph);
 
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
-	vSeedNodeIDs.push_back(11);
-	vSeedNodeIDs.push_back(21);
 	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
 	//pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
 
@@ -293,12 +294,12 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef _TEST_Email_EuAll
-	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Email-EuAll.txt", 0, 1);
+	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Amazon0302.txt", 0, 1);
 
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
-	vSeedNodeIDs.push_back(2);
-	vSeedNodeIDs.push_back(6);
+	//vSeedNodeIDs.push_back(2);
+	//vSeedNodeIDs.push_back(6);
 
 	RandomGraphInitialization(pGraph);
 
@@ -308,7 +309,7 @@ int main(int argc, char* argv[])
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	
-	TestGraph(pGraph, 0, 100);
+	TestGraph(pGraph, 0, 1);
 	//TestGraphDAG(pGraph, 0, 100);	// Not viable (memory overflow)
 #endif
 

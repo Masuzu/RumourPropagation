@@ -24,11 +24,14 @@
     <ClInclude Include="Utilities.h" />
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\Data\Email-EuAll.txt" />
-    <Text Include="..\Data\p2p-Gnutella09.txt" />
+    <CudaCompile Include="Test.cu" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="Test.cu" />
+    <Text Include="..\Release\Amazon0302.txt" />
+    <Text Include="..\Release\Email-EuAll.txt" />
+    <Text Include="..\Release\p2p-Gnutella04.txt" />
+    <Text Include="..\Release\Slashdot0902.txt" />
+    <Text Include="..\Release\web-Stanford.txt" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8F6A9BBE-2252-4715-BCF8-CB49FC22E13F}</ProjectGuid>

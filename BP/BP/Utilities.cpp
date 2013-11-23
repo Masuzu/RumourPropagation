@@ -1,11 +1,10 @@
+#include <algorithm>
 #include <iostream>
 #include <map>
-#include <algorithm>
 #include <queue>
 #include <float.h>
 #include "Utilities.h"
 #include <Snap.h>
-
 
 using namespace std;
 
@@ -430,7 +429,7 @@ TPt<TNodeEDatNet<TFlt, TFlt>> GenerateDAG2(const TPt<TNodeEDatNet<TFlt, TFlt>>& 
  
 void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult)
 {
-	int numNodes = pGraph->GetNodes();
+	int numNodes = (std::max)(pGraph->GetNodes(), sourceNode);
 	vResult.reserve(numNodes);
 	for(int i = 0; i<numNodes; ++i)
 		vResult.push_back(INT_MAX);
@@ -471,8 +470,8 @@ void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pG
 void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult)
 {
 	int currentRank=0;
-	int numNodes = pGraph->GetNodes();
-	vResult.reserve(pGraph->GetNodes());
+	int numNodes = (std::max)(pGraph->GetNodes(), sourceNode);
+	vResult.reserve(numNodes);
 	for(int i = 0; i<numNodes; ++i)
 		vResult.push_back(INT_MAX);
 	vResult[sourceNode]=0;

@@ -49,14 +49,23 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\Data\Email-EuAll.txt">
-      <Filter>Data</Filter>
-    </Text>
-    <Text Include="..\Data\p2p-Gnutella09.txt">
-      <Filter>Data</Filter>
-    </Text>
+    <CudaCompile Include="Test.cu" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="Test.cu" />
+    <Text Include="..\Release\Amazon0302.txt">
+      <Filter>Data</Filter>
+    </Text>
+    <Text Include="..\Release\Email-EuAll.txt">
+      <Filter>Data</Filter>
+    </Text>
+    <Text Include="..\Release\p2p-Gnutella04.txt">
+      <Filter>Data</Filter>
+    </Text>
+    <Text Include="..\Release\Slashdot0902.txt">
+      <Filter>Data</Filter>
+    </Text>
+    <Text Include="..\Release\web-Stanford.txt">
+      <Filter>Data</Filter>
+    </Text>
   </ItemGroup>
 </Project>

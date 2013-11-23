@@ -13,6 +13,7 @@
 
 #define __TBB_NO_IMPLICIT_LINKAGE	1
 #include <tbb/concurrent_vector.h>
+#include <tbb/concurrent_unordered_map.h>
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/blocked_range.h>
@@ -697,23 +698,6 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 	pGraph->DelNode(superRootNodeID);
 }
 
-void ParallelBPFromNode_1DPartitioning(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
-{
-	int superRootID = pGraph->GetMxNId()+1;
-	pGraph->AddNode(superRootID);
-	pGraph->SetNDat(superRootID, 1.0);
-	for(auto it=vSeedIDs.begin(); it!=vSeedIDs.end(); ++it)
-	{
-		pGraph->AddEdge(superRootID, *it);
-		pGraph->SetEDat(superRootID, *it, 1.0);
-	}
-
-	ParallelBPFromNode_1DPartitioning(pGraph, superRootID);
-
-	// Remove the artificial super root node
-	pGraph->DelNode(superRootID);
-}
-
 double InfluenceSpreadFromSeedNodes (const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph)
 {
 	double influenceSpread = 0.0;
@@ -785,7 +769,7 @@ void MaxIncrementalInfluence(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int numRound
 			GetPeerSeeds(mMIOAs,v, mPeerSeeds[v]);
 */
 
-	cout<<"--------------------------finish precomputation---------------------"<<endl;
+	std::cout<<"--------------------------finish precomputation---------------------"<< std::endl;
 	for (int i=0;i<numRounds;++i)
 	{
 		/* select the i'th seed by finding u = argmax(mSpreadIncrement)*/
@@ -795,7 +779,7 @@ void MaxIncrementalInfluence(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int numRound
 								 }
 							);
 		int SeedID = it->first;
-		cout << SeedID <<endl;
+		std::cout << SeedID << std::endl;
 
 		/* calculate the current influence spread */
 		vSeedSet.push_back(SeedID);
