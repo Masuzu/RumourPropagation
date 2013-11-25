@@ -3,6 +3,7 @@
 #include <map>
 #include <queue>
 #include <float.h>
+#include <fstream>
 #include "Utilities.h"
 #include <Snap.h>
 
@@ -531,4 +532,27 @@ double BPError(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph1, const TPt<TNodeEDat
 		}
 	}
 	return error/count;
+}
+
+void SaveEdgeWeightsToFile(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::string &fileName)
+{
+	std::ofstream fOut(fileName.c_str(), std::ios_base::ate);
+	for(auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+		fOut << EI.GetSrcNId() << " " << EI.GetDstNId() << " " << EI.GetDat().Val << std::endl;
+	fOut.close();
+}
+
+void LoadEdgeWeightsFromFile(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::string &fileName)
+{
+	std::ifstream fIn(fileName.c_str());
+	char line[256];
+	int source, dest;
+	double value;
+	while(!fIn.eof())
+	{
+		fIn >> source >> dest >> value;
+		pGraph->SetEDat(source, dest, value);
+	}
+
+	fIn.close();
 }

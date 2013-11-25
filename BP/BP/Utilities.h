@@ -53,3 +53,7 @@ void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pG
 //! @note pGraph1 and pGraph2 must have the same nodes
 //! Nodes with a null belief are not taken into account.
 double BPError(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph1, const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph2, const std::function<double(double, double)> &);
+
+void SaveEdgeWeightsToFile(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::string &fileName);
+
+void LoadEdgeWeightsFromFile(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::string &fileName);

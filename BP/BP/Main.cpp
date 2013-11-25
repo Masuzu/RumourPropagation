@@ -294,14 +294,24 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef _TEST_Email_EuAll
-	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Amazon0302.txt", 0, 1);
+
+	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Email-EuAll.txt", 0, 1);
+	RandomGraphInitialization(pGraph);
+
+#if TEST_EDGE_WEIGHT_SAVING
+	SaveEdgeWeightsToFile(pGraph, "BLABLA.txt");
+
+	// ...
+
+	LoadEdgeWeightsFromFile(pGraph, "BLABLA.txt");
+#endif
+
+	// ...
 
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
 	//vSeedNodeIDs.push_back(2);
 	//vSeedNodeIDs.push_back(6);
-
-	RandomGraphInitialization(pGraph);
 
 	tbb::tick_count tic = tbb::tick_count::now();
 	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
@@ -310,7 +320,9 @@ int main(int argc, char* argv[])
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	
 	TestGraph(pGraph, 0, 1);
+
 	//TestGraphDAG(pGraph, 0, 100);	// Not viable (memory overflow)
+
 #endif
 
 #ifdef _TEST_soc_pokec_relationships
