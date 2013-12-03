@@ -50,6 +50,13 @@ void CalculateRankFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const 
 void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, int sourceNode, std::vector<int> &vResult);
 void CalculateRankFromSource_BellmanFord(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph, const std::vector<int> vSeedNodes, std::vector<int> &vResult);
 
+//! Compute the number of reachable vertices from source node
+//! Function used in NewGreedIC algorithm
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,int sourceNode, std::vector<int>& vResult);
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,const std::vector<int> vSeedNodes, std::vector<int>& vResult);
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,int sourceNode);
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,const std::vector<int> vSeedNodes);
+
 //! @note pGraph1 and pGraph2 must have the same nodes
 //! Nodes with a null belief are not taken into account.
 double BPError(const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph1, const TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph2, const std::function<double(double, double)> &);

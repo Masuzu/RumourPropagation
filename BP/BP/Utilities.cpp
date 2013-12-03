@@ -219,6 +219,91 @@ void ResetGraphBelief(TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph)
 		pGraph->SetNDat(NI.GetId(), 0.0);
 }
 
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,int sourceNode, std::vector<int> &vResult)
+{
+	std::map<int, bool> visitedNodes;
+	std::queue<int> queue;
+	queue.push(sourceNode);
+	visitedNodes[sourceNode] = true;
+
+	while(!queue.empty())
+	{
+		int numNodesToProcess = queue.size();
+		for(int i=0; i< numNodesToProcess; ++i)
+		{
+			int nodeID = queue.front();
+			auto parent = pGraph->GetNI(nodeID);
+			int numChildren = parent.GetOutDeg();
+			for(int i = 0; i < numChildren; ++i)
+			{
+				int iChildID = parent.GetOutNId(i);
+				// Mark the child
+				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+				{
+					queue.push(iChildID);
+					vResult.push_back(iChildID);
+				}
+			}
+			queue.pop();
+		}
+	}
+
+	return visitedNodes.size();
+
+}
+
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,const std::vector<int> vSeedNodes, std::vector<int> &vResult)
+{
+	auto pTemp = CopyGraph(pGraph);
+	int superRootNodeID = pGraph->GetMxNId();
+	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
+	// SuperRootNode doesn't count
+	int numNodes = GetNumOfReachableNodesFromSource(pTemp, superRootNodeID, vResult) - 1;
+
+	return numNodes;
+}
+
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,int sourceNode)
+{
+	std::map<int, bool> visitedNodes;
+	std::queue<int> queue;
+	queue.push(sourceNode);
+	visitedNodes[sourceNode] = true;
+
+	while(!queue.empty())
+	{
+		int numNodesToProcess = queue.size();
+		for(int i=0; i< numNodesToProcess; ++i)
+		{
+			int nodeID = queue.front();
+			auto parent = pGraph->GetNI(nodeID);
+			int numChildren = parent.GetOutDeg();
+			for(int i = 0; i < numChildren; ++i)
+			{
+				int iChildID = parent.GetOutNId(i);
+				// Mark the child
+				if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
+				{
+					queue.push(iChildID);
+				}
+			}
+			queue.pop();
+		}
+	}
+	return visitedNodes.size();
+}
+
+int GetNumOfReachableNodesFromSource(const TPt<TNodeEDatNet<TFlt, TFlt>> &pGraph,const std::vector<int> vSeedNodes)
+{
+	auto pTemp = CopyGraph(pGraph);
+	int superRootNodeID = pGraph->GetMxNId();
+	AddSuperRootNode(pTemp, vSeedNodes, superRootNodeID);
+	// SuperRootNode doesn't count
+	int numNodes = GetNumOfReachableNodesFromSource(pTemp, superRootNodeID) - 1;
+
+	return numNodes;
+}
+
 //! Given pGraph with data about edge weights, computes the distance of the shortest paths from sourceNode
 //! and returns the result in the nodes of pDAGGraph.
 //! Updates the edges if bUpdateEdges is set to true. Default is false. In that case only the node data is updated with the shortest distance to sourceNode.

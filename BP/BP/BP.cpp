@@ -63,7 +63,7 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNo
 	for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
 	{
 		int numParents = NI.GetInDeg();
-		
+
 		// Initialize the variable currentNodeID|parentsOf_currentNodeID
 		dai::VarSet VarParents;	// empty
 		for(int i = 0; i < numParents; ++i)
@@ -98,14 +98,14 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNo
 			}
 		}
 		else
-		// Define the conditional probabilities for 'NI=0'
+			// Define the conditional probabilities for 'NI=0'
 		{
 			// Case in which the parents are not passing any message
 			if(currentNodeID==sourceNodeID)				
 				VGivenParents.set(0, 0.0);
 			else
 				VGivenParents.set(0, 1.0);
-	
+
 			// The other 2^numParents-1 cases for which 'NI=0'
 			for (size_t i = 1; i<pow(2.0, numParents); ++i)
 			{
@@ -137,7 +137,7 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNo
 	// ^__^
 
 	dai::FactorGraph Network( GraphFactors );
-	
+
 	// Write factorgraph to a file
 	// Network.WriteToFile( "sprinkler.fg" );
 
@@ -153,7 +153,7 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNo
 	std::cout << "P(node_4=1 | source=1) = " << P.marginal( dai::VarSet( VarMap[4], VarMap[sourceNodeID] ) )[3] / denom << std::endl;
 	std::cout << "P(R=1 | W=1) = " << P.marginal( VarSet( R, W ) )[3] / denom << endl;
 	*/
-	
+
 	// Update the belief of the nodes of pGraph
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
@@ -201,6 +201,10 @@ void ExactBP_Marginalization(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::v
 
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 {
+#ifdef _DEBUG_INFO
+	int meter = 0;
+#endif
+
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
 	// Used to store the nodes which have been traversed during the breadth-first search traversal
@@ -212,7 +216,9 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 	while(!queue.empty())
 	{
 		int nodeID = queue.front();
-
+#ifdef _DEBUG_INFO
+		++meter;
+#endif
 		auto parent = pGraph->GetNI(nodeID);	
 		int numChildren = parent.GetOutDeg();
 		// Update the belief of the children of parent
@@ -222,7 +228,7 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 			// Do p(u) = 1-(1-p(u))*(1-p(u,v)*p(v))
 			pGraph->SetNDat(iChildID,
 				1.0 - (1-parent.GetOutNDat(i).Val) * (1-parent.GetOutEDat(i).Val*parent.GetDat().Val));
-		
+
 			// Mark the child
 			if(visitedNodes.insert(std::pair<int,bool>(iChildID,true)).second)
 				queue.push(iChildID);
@@ -230,6 +236,10 @@ void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 
 		queue.pop();
 	}
+
+#ifdef _DEBUG_INFO
+	std::cout << "Number of nodes visited: " <<  meter << std::endl;
+#endif
 }
 
 void PropagateFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, const std::vector<int> &vSeedIDs)
@@ -330,16 +340,19 @@ void ParallelBPFromNode(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNodeID)
 #endif
 		if(numChildren > 50)
 		{
+#ifdef _DEBUG_INFO
+	std::cout << "Parallel update of " <<  numChildren << " nodes" << std::endl;
+#endif
 			tbb::parallel_for(tbb::blocked_range<int>(0,numChildren, 50), 
 				[&](const tbb::blocked_range<int>& r)
-				{
-					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
-				}
+			{
+				for (int i=r.begin();i!=r.end();++i)
+					ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
+			}
 			);
 		}
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for(int i = 0; i < numChildren; ++i)
 				ParallelBPFromNode_UpdateChild(pGraph, parent, visitedNodes, queue, i);
@@ -395,14 +408,14 @@ void ParallelBPFromNodeDAG(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int sourceNode
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0,numChildren, 50), 
 				[&](const tbb::blocked_range<int>& r)
-				{
-					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNodeDAG_UpdateChild(pGraph, parent, queue, i);
-				}
+			{
+				for (int i=r.begin();i!=r.end();++i)
+					ParallelBPFromNodeDAG_UpdateChild(pGraph, parent, queue, i);
+			}
 			);
 		}
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for(int i = 0; i < numChildren; ++i)
 				ParallelBPFromNodeDAG_UpdateChild(pGraph, parent, queue, i);
@@ -449,7 +462,7 @@ static void ParallelBPFromNode_LevelSynchronous_UpdateNode(TPt<TNodeEDatNet<TFlt
 		}
 		else
 			pGraph->SetNDat(iChildID,
-				1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
+			1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
 
 		// http://www.threadingbuildingblocks.org/docs/help/reference/containers_overview/concurrent_hash_map_cls/concurrent_operations.htm
 		// To guarantee that only one instance of a resource exists simultaneously for a given key,
@@ -468,6 +481,7 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 {
 #ifdef _DEBUG_INFO
 	int meter = 0;
+	int currentLevel = 0;
 #endif
 	pGraph->SetNDat(sourceNodeID, 1.0);
 
@@ -482,24 +496,28 @@ void ParallelBPFromNode_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		int numNodesToProcess = queue.unsafe_size();
 #ifdef _DEBUG_INFO
 		meter+=numNodesToProcess;
+		++currentLevel;
 #endif
 		// Parse level l
 		if(numNodesToProcess > 50)
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
 				[&](const tbb::blocked_range<int>& r)
-				{
-					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNode_LevelSynchronous_UpdateNode(pGraph, visitedNodes, queue, true); 
-				}
+			{
+				for (int i=r.begin();i!=r.end();++i)
+					ParallelBPFromNode_LevelSynchronous_UpdateNode(pGraph, visitedNodes, queue, true); 
+			}
 			);
 		}
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for (int i=0;i<numNodesToProcess;++i)
 				ParallelBPFromNode_LevelSynchronous_UpdateNode(pGraph, visitedNodes, queue, false); 
 		}
+#ifdef _DEBUG_INFO
+	std::cout << "Number of nodes at level " << currentLevel << " : " << numNodesToProcess << std::endl;
+#endif
 	}
 
 #ifdef _DEBUG_INFO
@@ -540,7 +558,7 @@ static void ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(TPt<TNodeEDatNet<T
 		}
 		else
 			pGraph->SetNDat(iChildID,
-				1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
+			1.0 - (1-parent.GetOutNDat(j).Val) * (1-parent.GetOutEDat(j).Val*parent.GetDat().Val));
 
 		queue.push(iChildID);
 	}
@@ -567,20 +585,20 @@ void ParallelBPFromNodeDAG_LevelSynchronous(TPt<TNodeEDatNet<TFlt, TFlt>>& pGrap
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
 				[&](const tbb::blocked_range<int>& r)
-				{
-					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(pGraph, queue, true); 
-				}
+			{
+				for (int i=r.begin();i!=r.end();++i)
+					ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(pGraph, queue, true); 
+			}
 			);
 		}
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for (int i=0;i<numNodesToProcess;++i)
 				ParallelBPFromNodeDAG_LevelSynchronous_UpdateNode(pGraph, queue, false); 
 		}
 	}
-	
+
 #ifdef _DEBUG_INFO
 	std::cout << meter << std::endl;
 #endif
@@ -667,14 +685,14 @@ void ParallelBPFromNode_SingleNodeUpdate(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, 
 		{
 			tbb::parallel_for(tbb::blocked_range<int>(0, numNodesToProcess, 50), 
 				[&](const tbb::blocked_range<int>& r)
-				{
-					for (int i=r.begin();i!=r.end();++i)
-						ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, visitedNodes, queue, refRank, currentRank); 
-				}
+			{
+				for (int i=r.begin();i!=r.end();++i)
+					ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, visitedNodes, queue, refRank, currentRank); 
+			}
 			);
 		}
 		else
-		// Not enough elements to do the work concurrently
+			// Not enough elements to do the work concurrently
 		{
 			for (int i=0;i<numNodesToProcess;++i)
 				ParallelBPFromNode_SingleNodeUpdate_UpdateNode(pGraph, pRankMap, visitedNodes, queue, refRank, currentRank); 
@@ -747,37 +765,37 @@ void MaxIncrementalInfluence(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int numRound
 	int numNodes = pGraph->GetMxNId();
 	tbb::parallel_for(tbb::blocked_range<int>(0, numNodes, 100),
 		[&](const tbb::blocked_range<int>& r)
-		{
-			for (int i=r.begin();i!=r.end();++i){
-				if(pGraph->IsNode(i))
-				{
-					auto pGraph_v = MIOA(pGraph, i, 0);
-					ResetGraphBelief(pGraph_v);
-					ParallelBPFromNode_LevelSynchronous(pGraph_v, i);
-					mSpreadIncrement[i]=InfluenceSpreadFromSeedNodes(pGraph_v);
-					//mMIOAs.insert(std::make_pair(i,pGraph_v));
-					//cout<< i <<endl;
-				}
+	{
+		for (int i=r.begin();i!=r.end();++i){
+			if(pGraph->IsNode(i))
+			{
+				auto pGraph_v = MIOA(pGraph, i, 0);
+				ResetGraphBelief(pGraph_v);
+				ParallelBPFromNode_LevelSynchronous(pGraph_v, i);
+				mSpreadIncrement[i]=InfluenceSpreadFromSeedNodes(pGraph_v);
+				//mMIOAs.insert(std::make_pair(i,pGraph_v));
+				//cout<< i <<endl;
 			}
 		}
+	}
 	);
-/*
+	/*
 	//build PeerSeeds
 	//Failure due to the insufficient memory
 	for (int v =0; v<pGraph->GetNodes();++v)
-		if(pGraph->IsNode(v))
-			GetPeerSeeds(mMIOAs,v, mPeerSeeds[v]);
-*/
+	if(pGraph->IsNode(v))
+	GetPeerSeeds(mMIOAs,v, mPeerSeeds[v]);
+	*/
 
 	std::cout<<"--------------------------finish precomputation---------------------"<< std::endl;
 	for (int i=0;i<numRounds;++i)
 	{
 		/* select the i'th seed by finding u = argmax(mSpreadIncrement)*/
 		auto it = std::max_element(mSpreadIncrement.begin(),mSpreadIncrement.end(),
-							[&](std::pair<int,double> const& a, std::pair<int,double> const& b) {
-								 return a.second < b.second;
-								 }
-							);
+			[&](std::pair<int,double> const& a, std::pair<int,double> const& b) {
+				return a.second < b.second;
+		}
+		);
 		int SeedID = it->first;
 		std::cout << SeedID << std::endl;
 
@@ -794,35 +812,361 @@ void MaxIncrementalInfluence(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int numRound
 		double Delta_MAX = 0.0;
 		tbb::parallel_for(tbb::blocked_range<int>(0, numNodes, 100),
 			[&](const tbb::blocked_range<int>& r)
+		{
+			for (int i=r.begin();i!=r.end();++i)
 			{
-				for (int i=r.begin();i!=r.end();++i)
+				/* exclude the nodes in seed set */
+				auto result = std::find(vSeedSet.begin(),vSeedSet.end(), i);
+				if (result != vSeedSet.end()) continue;
+				//cout<<pGraph->IsNode(v)<<" , "<<mSpreadIncrement[v]<<endl;
+
+				if(pGraph->IsNode(i) && mSpreadIncrement[i] > Delta_MAX)
 				{
-					/* exclude the nodes in seed set */
-					auto result = std::find(vSeedSet.begin(),vSeedSet.end(), i);
-					if (result != vSeedSet.end()) continue;
-					//cout<<pGraph->IsNode(v)<<" , "<<mSpreadIncrement[v]<<endl;
+					/*different processors use different copied vSeedSet*/
+					std::vector<int> vSeedSet_v = vSeedSet;
+					vSeedSet_v.push_back(i);
 
-					if(pGraph->IsNode(i) && mSpreadIncrement[i] > Delta_MAX)
+					auto pGraph_v = GenerateDAG1(pGraph, vSeedSet_v, 0);
+					ParallelBPFromNode_LevelSynchronous(pGraph_v, vSeedSet_v);
+					mSpreadIncrement[i]=InfluenceSpreadFromSeedNodes(pGraph_v)-influence;
+					if (mSpreadIncrement[i]> Delta_MAX)
 					{
-						/*different processors use different copied vSeedSet*/
-						std::vector<int> vSeedSet_v = vSeedSet;
-						vSeedSet_v.push_back(i);
-
-						auto pGraph_v = GenerateDAG1(pGraph, vSeedSet_v, 0);
-						ParallelBPFromNode_LevelSynchronous(pGraph_v, vSeedSet_v);
-						mSpreadIncrement[i]=InfluenceSpreadFromSeedNodes(pGraph_v)-influence;
-						if (mSpreadIncrement[i]> Delta_MAX)
-						{
-							tbb::spin_mutex::scoped_lock lock(sMutex);
-							Delta_MAX = mSpreadIncrement[i];
-						}
-						vSeedSet_v.pop_back();
+						tbb::spin_mutex::scoped_lock lock(sMutex);
+						Delta_MAX = mSpreadIncrement[i];
 					}
+					vSeedSet_v.pop_back();
+				}
+			}
+
+		}
+		);
+	}
+}
+
+void GreedyCELF(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int setSize,std::vector<int> &vSeedSet){
+
+	std::map<int,double> mSpreadIncrement;
+	auto pGraph_main = CopyGraph(pGraph);
+	auto pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+	double influence = 0.0;
+
+	//Failure of using PeerSeeds due to insufficient memory
+	//std::map<int,std::vector<int> > mPeerSeeds;
+	//std::map<int,TPt<TNodeEDatNet<TFlt, TFlt>> > mMIOAs;
+
+	/* Initialization*/
+	for(auto NI = pGraph_main->BegNI();NI<pGraph_main->EndNI();NI++)
+	{
+		if(pGraph_main->IsNode(NI.GetId()))
+		{
+			int nodeID = NI.GetId();
+			pGraph_temp = MIOA(pGraph_main, nodeID, 0);
+			ResetGraphBelief(pGraph_temp);
+			ParallelBPFromNodeDAG_LevelSynchronous(pGraph_temp,nodeID);
+			mSpreadIncrement[nodeID]=InfluenceSpreadFromSeedNodes(pGraph_temp);
+			//mMIOAs.insert(std::make_pair(i,pGraph_v));
+		}
+	}
+
+	/*
+	//build PeerSeeds
+	//Failure due to the insufficient memory
+	for (int v =0; v<pGraph->GetNodes();++v)
+	if(pGraph->IsNode(v))
+	mPeerSeeds[v]=GetPeerSeeds(mMIOAs,v);
+	*/
+
+	//cout<<"Precomputation finished"<<endl;
+
+	for (int k=0;k<setSize;++k)
+	{
+		/* select the i'th seed by finding u = argmax(mSpreadIncrement)*/
+		auto it = std::max_element(mSpreadIncrement.begin(),mSpreadIncrement.end(),
+			[&](std::pair<int,double> const& a, std::pair<int,double> const& b) {
+				return a.second < b.second;
+		}
+		);
+		int SeedID = it->first;
+		std::cout << "Round "<<k<<": the most influential node is: "<<SeedID <<std::endl;
+
+		/* calculate the current influence spread */
+
+		vSeedSet.push_back(SeedID);
+		pGraph_main =CopyGraph(pGraph);
+		pGraph_main = GenerateDAG1(pGraph_main, vSeedSet, 0.0);
+		ParallelBPFromNodeDAG_LevelSynchronous(pGraph_main, vSeedSet);
+		influence = InfluenceSpreadFromSeedNodes(pGraph_main);
+
+		/*remove the newly selected node*/
+		mSpreadIncrement.erase(SeedID);
+		// update incremental influence spread for each round
+		double Delta_MAX = 0.0;
+		for(auto NI = pGraph_main->BegNI();NI<pGraph_main->EndNI();NI++)
+		{
+			int nodeID = NI.GetId();
+			// exclude the nodes in seed set
+			auto result = std::find(vSeedSet.begin(),vSeedSet.end(), nodeID);
+			if (result != vSeedSet.end()) continue;
+			//CELF
+			if(pGraph_main->IsNode(nodeID) && mSpreadIncrement[nodeID] > Delta_MAX)
+			{
+				vSeedSet.push_back(nodeID);
+				pGraph_main =CopyGraph(pGraph);
+				pGraph_temp = GenerateDAG1(pGraph_main, vSeedSet, 0);
+				ParallelBPFromNodeDAG_LevelSynchronous(pGraph_temp, vSeedSet);
+				mSpreadIncrement[nodeID]=InfluenceSpreadFromSeedNodes(pGraph_temp)-influence;
+
+				if (mSpreadIncrement[nodeID]> Delta_MAX)
+					Delta_MAX = mSpreadIncrement[nodeID];
+
+				vSeedSet.pop_back();
+			}
+		}
+	}
+
+}
+
+void ParallelGreedyCELF(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int setSize,std::vector<int> &vSeedSet){
+
+	tbb::concurrent_unordered_map<int,double> mSpreadIncrement;
+	auto pGraph_main = CopyGraph(pGraph);
+	auto pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+	double influence = 0.0; int i,chunk = 70;
+	static tbb::spin_mutex sMutex;
+
+	/* Initialization*/
+	int numNodes = pGraph_main->GetMxNId();
+#pragma omp parallel shared(pGraph_main,chunk,mSpreadIncrement) private(pGraph_temp,i)
+	{
+#pragma omp for schedule(dynamic,chunk) nowait
+		for (i =0;i<numNodes;++i)
+		{
+			if(pGraph_main->IsNode(i))
+			{
+				pGraph_temp = MIOA(pGraph_main, i, 0);
+				ResetGraphBelief(pGraph_temp);
+				ParallelBPFromNodeDAG_LevelSynchronous(pGraph_temp, i);
+				mSpreadIncrement[i]=InfluenceSpreadFromSeedNodes(pGraph_temp);
+
+			}
+
+		}
+	}
+	//cout<<"Precomputation finished"<<endl;
+
+	for (int r=0;r<setSize;++r)
+	{
+		/* select the i'th seed by finding u = argmax(mSpreadIncrement)*/
+		auto it = std::max_element(mSpreadIncrement.begin(),mSpreadIncrement.end(),
+			[&](std::pair<int,double> const& a, std::pair<int,double> const& b) {
+				return a.second < b.second;
+		}
+		);
+		int SeedID = it->first;
+		std::cout << "Round "<<r<<": the most influential node is: "<<SeedID <<std::endl;
+
+		/* calculate the current influence spread */
+		vSeedSet.push_back(SeedID);
+		pGraph_main = CopyGraph(pGraph);
+		pGraph_main = GenerateDAG1(pGraph_main, vSeedSet, 0.0);
+		ParallelBPFromNodeDAG_LevelSynchronous(pGraph_main, vSeedSet);
+		influence = InfluenceSpreadFromSeedNodes(pGraph_main);
+
+		/*remove the newly selected node*/
+		mSpreadIncrement.unsafe_erase(SeedID);
+
+		// update incremental influence spread for each round
+		double Delta_MAX = 0.0;
+		for(auto NI = pGraph_main->BegNI();NI<pGraph_main->EndNI();NI++)
+		{
+			int nodeID = NI.GetId();
+			// exclude the nodes in seed set
+			auto result = std::find(vSeedSet.begin(),vSeedSet.end(), nodeID);
+			if (result != vSeedSet.end()) continue;
+			//CELF
+			if(pGraph_main->IsNode(nodeID) && mSpreadIncrement[nodeID] > Delta_MAX)
+			{
+				vSeedSet.push_back(nodeID);
+				pGraph_main =CopyGraph(pGraph);
+				pGraph_temp = GenerateDAG1(pGraph_main, vSeedSet, 0);
+				ParallelBPFromNodeDAG_LevelSynchronous(pGraph_temp, vSeedSet);
+				mSpreadIncrement[nodeID]=InfluenceSpreadFromSeedNodes(pGraph_temp)-influence;
+
+				if (mSpreadIncrement[nodeID]> Delta_MAX)
+					Delta_MAX = mSpreadIncrement[nodeID];
+
+				vSeedSet.pop_back();
+			}
+		}
+
+
+	}
+}
+
+void ParallelNewGreedIC(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int setSize, int numRounds, std::vector<int> &vSeedSet)
+{
+
+	auto pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+	tbb::concurrent_unordered_map<int,unsigned int> mInfluenceSpread;
+	std::map<int, unsigned int> mNumOfNodesFromSource;
+	std::vector<int> vResult;
+	int i,chunk = 70;
+	static tbb::spin_mutex sMutex;
+
+	for (int k=0; k<setSize ; ++k)
+	{
+		mInfluenceSpread.clear();
+		mNumOfNodesFromSource.clear();
+		vResult.clear();
+
+#pragma omp parallel shared(chunk,mInfluenceSpread,pGraph) private(i,pGraph_temp,mNumOfNodesFromSource)
+		{
+#pragma omp for schedule(dynamic,chunk) nowait
+			for (i =0;i<numRounds;++i)
+			{
+
+				//Copy all nodes of original graph to temp one
+				pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+				for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+					pGraph_temp->AddNode(NI.GetId());
+
+				//1.Compute G' by removing each edge from G with probability 1 -p
+				//2.Compute the set of vertices reachable from S
+				//3.Compute as well the sets of vertices from v
+				for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+				{
+					double coinflip = (double) rand()/RAND_MAX;
+					if( coinflip > 1.0-EI.GetDat().Val)
+					{
+						pGraph_temp->AddEdge(EI.GetSrcNId(),EI.GetDstNId());
+						pGraph_temp->SetEDat(EI.GetSrcNId(),EI.GetDstNId(),EI.GetDat().Val);
+					}
+
+				}
+
+				//cout<<"graph edges: "<<pGraph_temp->GetEdges()<<endl;
+
+				if(k!=0)//skip the first time
+					GetNumOfReachableNodesFromSource(pGraph_temp,vSeedSet,vResult);
+
+				for(auto NI = pGraph_temp->BegNI();NI<pGraph_temp->EndNI();NI++)
+				{
+					// make sure that v is not in Rg(S)
+					if (k!=0) {
+						auto result = std::find(vResult.begin(),vResult.end(), NI.GetId());
+						if  (result!=vResult.end()) continue;
+					}
+
+					if(pGraph_temp->IsNode(NI.GetId()))
+					{
+						mNumOfNodesFromSource[NI.GetId()] = GetNumOfReachableNodesFromSource(pGraph_temp,NI.GetId());
+						//cout<<"node "<<i<<", num of reachable nodes: "<<mNumOfNodesFromSource[i]<<endl;
+					}
+
+					// accumulate the influence spread
+#pragma omp critical
+					mInfluenceSpread[NI.GetId()]+=mNumOfNodesFromSource[NI.GetId()];
+
 				}
 
 			}
+		}
+
+		// select the i'th seed by finding u = argmax(mInfluenceSpread)
+		auto it = std::max_element(mInfluenceSpread.begin(),mInfluenceSpread.end(),
+			[&](std::pair<int,unsigned int> const& a, std::pair<int,unsigned int> const& b) {
+				return a.second < b.second;
+		}
+		);
+		int SeedID = it->first;
+		//cout<<" max: "<<mInfluenceSpread[SeedID]<<endl;
+		mInfluenceSpread.unsafe_erase(SeedID);
+		vSeedSet.push_back(SeedID);
+		std::cout << "Round "<< k <<": the most influential node is: "<<SeedID <<std::endl;
+		//Add the new seed and remove it from the map InfluenceSpread
+
+	}
+}
+
+void ParallelNewGreedIC_Nested(TPt<TNodeEDatNet<TFlt, TFlt>>& pGraph, int setSize, int numRounds, std::vector<int> &vSeedSet)
+{
+
+	auto pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+	tbb::concurrent_unordered_map<int,unsigned int> mInfluenceSpread;
+	std::map<int, unsigned int> mNumOfNodesFromSource;
+	std::vector<int> vResult;
+	int i,j,chunk = 50,numNodes = pGraph->GetMxNId();
+	static tbb::spin_mutex sMutex;
+
+	for (int k=0; k<setSize ; ++k)
+	{
+		mInfluenceSpread.clear();
+		mNumOfNodesFromSource.clear();
+		vResult.clear();
+
+#pragma omp parallel shared(chunk,mInfluenceSpread,pGraph) private(i,pGraph_temp)
+		{
+#pragma omp for schedule(dynamic) nowait
+			for (i =0;i<numRounds;++i)
+			{
+
+				//Copy all nodes of original graph to temp one
+				pGraph_temp = TNodeEDatNet<TFlt, TFlt>::New();
+				for (auto NI = pGraph->BegNI(); NI < pGraph->EndNI(); NI++)
+					pGraph_temp->AddNode(NI.GetId());
+
+				//1.Compute G' by removing each edge from G with probability 1 -p
+				//2.Compute the set of vertices reachable from S
+				//3.Compute as well the sets of vertices from v
+				for (auto EI = pGraph->BegEI(); EI < pGraph->EndEI(); EI++)
+				{
+					double coinflip = (double) rand()/RAND_MAX;
+					if( coinflip > 1.0-EI.GetDat().Val)
+					{
+						pGraph_temp->AddEdge(EI.GetSrcNId(),EI.GetDstNId());
+						pGraph_temp->SetEDat(EI.GetSrcNId(),EI.GetDstNId(),EI.GetDat().Val);
+					}
+
+				}
+
+				//cout<<"graph edges: "<<pGraph_temp->GetEdges()<<endl;
+
+				if(k!=0)//skip the first time
+					GetNumOfReachableNodesFromSource(pGraph_temp,vSeedSet,vResult);
+
+#pragma omp parallel for schedule(dynamic) shared(pGraph_temp,mInfluenceSpread) private(j,mNumOfNodesFromSource)
+				for (j =0;j<numNodes;++j)
+				{
+					if (k!=0) {
+						auto result = std::find(vResult.begin(),vResult.end(), j);
+						if  (result!=vResult.end()) continue;
+					}
+					if(pGraph_temp->IsNode(j))
+					{
+						mNumOfNodesFromSource[j] = GetNumOfReachableNodesFromSource(pGraph_temp,j);
+						//cout<<"node "<<i<<", num of reachable nodes: "<<mNumOfNodesFromSource[i]<<endl;
+					}
+#pragma omp critical
+					mInfluenceSpread[j]+=mNumOfNodesFromSource[j];
+
+				}
+
+			}
+		}
+
+		// select the i'th seed by finding u = argmax(mInfluenceSpread)
+		auto it = std::max_element(mInfluenceSpread.begin(),mInfluenceSpread.end(),
+			[&](std::pair<int,unsigned int> const& a, std::pair<int,unsigned int> const& b) {
+				return a.second < b.second;
+		}
 		);
 
+		int SeedID = it->first;
+		//cout<<" max: "<<mInfluenceSpread[SeedID]<<endl;
+		mInfluenceSpread.unsafe_erase(SeedID);
+		vSeedSet.push_back(SeedID);
+		std::cout << "Round "<< k <<": the most influential node is: "<<SeedID << std::endl;
+		//Add the new seed and remove it from the map InfluenceSpread
 
 	}
 }

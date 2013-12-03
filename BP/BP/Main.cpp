@@ -13,9 +13,11 @@ using namespace std;
 // Discussion about variable declaration and loops
 // http://stackoverflow.com/questions/982963/is-there-any-overhead-to-declaring-a-variable-within-a-loop-c
 
-//#define _TEST_soc_pokec_relationships
-#define _TEST_Email_EuAll
-//#define _TEST_p2p_Gnutella04
+//#define _TEST_webStanford
+//x#define _TEST_Amazon0302
+//#define _TEST_Slashdot0902
+//#define _TEST_Email_EuAll
+#define _TEST_p2p_Gnutella04
 
 //#define _LOAD_FROM_FILE
 //#define _SAVE_TO_FILE
@@ -265,15 +267,12 @@ int main(int argc, char* argv[])
 #endif
 
 #ifdef _TEST_p2p_Gnutella04
-	/*TFIn FIn("p2p-Gnutella04.graph");
-	auto pGraph = TNodeEDatNet<TFlt, TFlt>::Load(FIn);
-	ResetGraphBelief(pGraph);*/
-
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("p2p-Gnutella04.txt", 0, 1);
-	RandomGraphInitialization(pGraph);
+	LoadEdgeWeightsFromFile(pGraph, "p2p-Gnutella04-Network.txt");
 
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
+	vSeedNodeIDs.push_back(11);
 	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
 	//pGraph = GenerateDAG2(pGraph, vSeedNodeIDs, 0);
 
@@ -290,13 +289,14 @@ int main(int argc, char* argv[])
 	*/
 
 	//pGraph = GenerateDAG2(pGraph, 0, 0);
+	//ParallelBPFromNode(pGraph, vSeedNodeIDs);
 	TestGraph(pGraph, vSeedNodeIDs, 100);
 #endif
 
 #ifdef _TEST_Email_EuAll
 
 	auto pGraph = TSnap::LoadEdgeList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Email-EuAll.txt", 0, 1);
-	RandomGraphInitialization(pGraph);
+	LoadEdgeWeightsFromFile(pGraph, "Email-EuAll-Network.txt");
 
 #if TEST_EDGE_WEIGHT_SAVING
 	SaveEdgeWeightsToFile(pGraph, "BLABLA.txt");
@@ -310,8 +310,7 @@ int main(int argc, char* argv[])
 
 	std::vector<int> vSeedNodeIDs;
 	vSeedNodeIDs.push_back(0);
-	//vSeedNodeIDs.push_back(2);
-	//vSeedNodeIDs.push_back(6);
+	vSeedNodeIDs.push_back(3);
 
 	tbb::tick_count tic = tbb::tick_count::now();
 	pGraph = GenerateDAG1(pGraph, vSeedNodeIDs, 0);
@@ -319,15 +318,50 @@ int main(int argc, char* argv[])
 	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
 	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
 	
-	TestGraph(pGraph, 0, 1);
+	TestGraph(pGraph, vSeedNodeIDs, 1);
 
 	//TestGraphDAG(pGraph, 0, 100);	// Not viable (memory overflow)
 
 #endif
 
-#ifdef _TEST_soc_pokec_relationships
-	auto pGraph = TSnap::LoadConnList<TPt<TNodeEDatNet<TFlt, TFlt>>>("soc-pokec-relationships.txt");
-	TestGraph(pGraph, 1, 1);
+#ifdef _TEST_Slashdot0902
+	auto pGraph = TSnap::LoadConnList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Slashdot0902.txt");
+	LoadEdgeWeightsFromFile(pGraph, "Slashdot0902-Network.txt");
+
+	tbb::tick_count tic = tbb::tick_count::now();
+	pGraph = GenerateDAG1(pGraph, 0, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
+
+	TestGraph(pGraph, 0, 1);
+#endif
+
+#ifdef _TEST_webStanford
+	auto pGraph = TSnap::LoadConnList<TPt<TNodeEDatNet<TFlt, TFlt>>>("web-Stanford.txt");
+	LoadEdgeWeightsFromFile(pGraph, "web-Stanford-Network.txt");
+
+	tbb::tick_count tic = tbb::tick_count::now();
+	pGraph = GenerateDAG1(pGraph, 2, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
+
+	//TestGraph(pGraph, 2, 1);
+	ParallelBPFromNode_LevelSynchronous(pGraph, 2);
+#endif
+
+#ifdef _TEST_Amazon0302
+	auto pGraph = TSnap::LoadConnList<TPt<TNodeEDatNet<TFlt, TFlt>>>("Amazon0302.txt");
+	LoadEdgeWeightsFromFile(pGraph, "Amazon0302-Network.txt");
+
+	tbb::tick_count tic = tbb::tick_count::now();
+	pGraph = GenerateDAG1(pGraph, 0, 0);
+	//pGraph = GenerateDAG2(pGraph, 0, 0);
+	double dElapsedTime = (tbb::tick_count::now() - tic).seconds();
+	cout << "Time elapsed for DAG2 computation: " << dElapsedTime << " seconds\n";
+
+	TestGraph(pGraph, 0, 1);
 #endif
 
 #ifdef _WIN32
